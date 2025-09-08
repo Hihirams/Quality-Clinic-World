@@ -1,0 +1,28 @@
+## Unity - ignora artefactos regenerables
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Mm]emoryCaptures/
+[Gg]radle/
+[Uu]ser[Ss]ettings/
+.vs/
+.idea/
+ECHO est  activado.
+## Archivos de soluci¢n y cache
+*.csproj
+*.sln
+*.user
+*.userprefs
+*.pidb
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+*.tmp
+*.DS_Store
+ECHO est  activado.
+## Mantener en repo: Assets/ Packages/ ProjectSettings/
