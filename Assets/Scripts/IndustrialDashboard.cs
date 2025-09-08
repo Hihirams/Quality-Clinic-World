@@ -8,21 +8,26 @@ public class IndustrialDashboard : MonoBehaviour
     [Header("Referencias de UI - Se crean automáticamente")]
     private Canvas mainCanvas;
 
-    [Header("Configuración de Colores")]
-    public Color primaryColor = new Color(0.2f, 0.4f, 0.8f, 1f);    // Azul industrial
-    public Color secondaryColor = new Color(0.3f, 0.3f, 0.3f, 1f);  // Gris oscuro
-    public Color accentColor = new Color(0.0f, 0.8f, 0.4f, 1f);     // Verde
-    public Color warningColor = new Color(1f, 0.6f, 0f, 1f);        // Naranja
-    public Color dangerColor = new Color(0.8f, 0.2f, 0.2f, 1f);     // Rojo
+    [Header("Configuración de Colores - EXACTOS de la imagen")]
+    public Color primaryColor = new Color(0.2f, 0.6f, 1f, 1f);        // Azul KPIs
+    public Color secondaryColor = new Color(1f, 1f, 1f, 1f);          // FONDO BLANCO PURO
+    public Color accentColor = new Color(0.0f, 0.8f, 0.4f, 1f);       // Verde PREDICCIONES
+    public Color warningColor = new Color(1f, 0.65f, 0f, 1f);         // Naranja barras
+    public Color dangerColor = new Color(0.9f, 0.3f, 0.3f, 1f);       // Rojo alertas
+    public Color textDarkColor = new Color(0.2f, 0.2f, 0.2f, 1f);     // Texto oscuro
+    public Color progressBgColor = new Color(0.88f, 0.88f, 0.88f, 1f); // Fondo barras gris claro
+    public Color lightGrayColor = new Color(0.95f, 0.95f, 0.95f, 1f); // Botón cerrar
+    public Color panelGrayColor = new Color(0.45f, 0.45f, 0.45f, 1f); // Fondo panel GRIS como imagen
 
     private GameObject kpisPanel;
     private GameObject prediccionesPanel;
     private Button kpisButton;
     private Button prediccionesButton;
+    private GameObject mainPanel;
 
     // Configuración de comportamiento
     [Header("Configuración de Comportamiento")]
-    public bool showOnStart = false; // Por defecto FALSE para que no aparezca automáticamente
+    public bool showOnStart = false;
 
     // Datos del Dashboard
     [Header("Datos del Dashboard")]
@@ -42,19 +47,20 @@ public class IndustrialDashboard : MonoBehaviour
 
     // Variables de control
     private string currentAreaName = "Ninguna";
-    private GameObject areaTitle; // Para mostrar el nombre del área seleccionada
+    private GameObject areaTitle;
+
+    // Sprites para bordes redondeados
+    private Sprite roundedRectSprite;
+    private Sprite veryRoundedSprite; // Para el panel principal más redondeado
 
     void Start()
     {
         Debug.Log("Iniciando Industrial Dashboard...");
 
-        // Crear Canvas principal si no existe
+        CreateRoundedSprites();
         CreateMainCanvas();
-
-        // Configurar interfaz principal
         SetupMainInterface();
 
-        // Solo mostrar si showOnStart es true
         if (!showOnStart)
         {
             HideInterface();
@@ -62,7 +68,56 @@ public class IndustrialDashboard : MonoBehaviour
         }
     }
 
-    // Método para ocultar la interfaz
+    void CreateRoundedSprites()
+    {
+        roundedRectSprite = CreateRoundedRectSprite(6);
+        veryRoundedSprite = CreateRoundedRectSprite(16); // Panel principal más redondeado
+    }
+
+    Sprite CreateRoundedRectSprite(int cornerRadius = 6)
+    {
+        int width = 64;
+        int height = 64;
+
+        Texture2D texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
+        Color[] pixels = new Color[width * height];
+
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                bool isInside = IsInsideRoundedRect(x, y, width, height, cornerRadius);
+                pixels[y * width + x] = isInside ? Color.white : Color.clear;
+            }
+        }
+
+        texture.SetPixels(pixels);
+        texture.Apply();
+
+        return Sprite.Create(texture, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect,
+            new Vector4(cornerRadius, cornerRadius, cornerRadius, cornerRadius));
+    }
+
+    bool IsInsideRoundedRect(int x, int y, int width, int height, int radius)
+    {
+        // Esquinas
+        bool isInCorner = (x < radius && y < radius) ||
+                         (x >= width - radius && y < radius) ||
+                         (x < radius && y >= height - radius) ||
+                         (x >= width - radius && y >= height - radius);
+
+        if (!isInCorner) return true;
+
+        // Calcular distancia desde la esquina más cercana
+        Vector2 cornerCenter;
+        if (x < radius && y < radius) cornerCenter = new Vector2(radius, radius);
+        else if (x >= width - radius && y < radius) cornerCenter = new Vector2(width - radius, radius);
+        else if (x < radius && y >= height - radius) cornerCenter = new Vector2(radius, height - radius);
+        else cornerCenter = new Vector2(width - radius, height - radius);
+
+        return Vector2.Distance(new Vector2(x, y), cornerCenter) <= radius;
+    }
+
     public void HideInterface()
     {
         if (mainCanvas != null)
@@ -71,7 +126,6 @@ public class IndustrialDashboard : MonoBehaviour
         }
     }
 
-    // Método para mostrar la interfaz
     public void ShowInterface()
     {
         if (mainCanvas != null)
@@ -81,26 +135,19 @@ public class IndustrialDashboard : MonoBehaviour
         }
     }
 
-    // Método principal para actualizar con datos de área específica
     public void UpdateWithAreaData(string areaName, List<KPIData> newKPIs, List<string> newPredictions)
     {
         currentAreaName = areaName;
         kpisData = newKPIs ?? kpisData;
         prediccionesData = newPredictions ?? newPredictions;
 
-        // Actualizar el título del área
         UpdateAreaTitle();
-
-        // Recrear los paneles con los nuevos datos
         RefreshPanels();
-
-        // Mostrar la interfaz si estaba oculta
         ShowInterface();
 
         Debug.Log($"✓ Dashboard actualizado con datos de: {areaName}");
     }
 
-    // Método para actualizar el título del área
     void UpdateAreaTitle()
     {
         if (areaTitle != null)
@@ -113,10 +160,8 @@ public class IndustrialDashboard : MonoBehaviour
         }
     }
 
-    // Método para refrescar los paneles
     void RefreshPanels()
     {
-        // Destruir paneles existentes si existen
         if (kpisPanel != null)
         {
             DestroyImmediate(kpisPanel);
@@ -126,14 +171,10 @@ public class IndustrialDashboard : MonoBehaviour
             DestroyImmediate(prediccionesPanel);
         }
 
-        // Recrear paneles con datos actualizados
         CreatePanels();
-
-        // Reconfigurar eventos de botones
         SetupButtonEvents();
     }
 
-    // Función auxiliar para crear GameObjects de UI correctamente
     GameObject CreateUIGameObject(string name, Transform parent = null)
     {
         GameObject obj = new GameObject(name);
@@ -143,7 +184,6 @@ public class IndustrialDashboard : MonoBehaviour
             obj.transform.SetParent(parent, false);
         }
 
-        // Asegurar que tiene RectTransform para UI
         if (obj.GetComponent<RectTransform>() == null)
         {
             obj.AddComponent<RectTransform>();
@@ -154,118 +194,109 @@ public class IndustrialDashboard : MonoBehaviour
 
     void CreateMainCanvas()
     {
-        // Buscar si ya existe un Canvas
         mainCanvas = FindObjectOfType<Canvas>();
 
         if (mainCanvas == null)
         {
-            // Crear GameObject para el Canvas
             GameObject canvasObj = new GameObject("UI_Canvas");
             mainCanvas = canvasObj.AddComponent<Canvas>();
 
-            // Configurar Canvas
             mainCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
             mainCanvas.sortingOrder = 100;
 
-            // Agregar CanvasScaler para responsive design
             CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920, 1080);
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
             scaler.matchWidthOrHeight = 0.5f;
 
-            // Agregar GraphicRaycaster para detección de clicks
             canvasObj.AddComponent<GraphicRaycaster>();
-
             Debug.Log("✓ Canvas principal creado automáticamente");
         }
-        else
-        {
-            Debug.Log("✓ Canvas existente encontrado");
-        }
 
-        // Crear EventSystem si no existe
         if (FindObjectOfType<UnityEngine.EventSystems.EventSystem>() == null)
         {
             GameObject eventSystemObj = new GameObject("EventSystem");
             eventSystemObj.AddComponent<UnityEngine.EventSystems.EventSystem>();
             eventSystemObj.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
-
             Debug.Log("✓ EventSystem creado automáticamente");
-        }
-        else
-        {
-            Debug.Log("✓ EventSystem existente encontrado");
         }
     }
 
     void SetupMainInterface()
     {
-        // Crear título del área
+        CreateMainPanel();
         CreateAreaTitle();
-
-        // Crear botones principales
         CreateMainButtons();
-
-        // Crear paneles (inicialmente ocultos)
         CreatePanels();
-
-        // Configurar eventos
         SetupButtonEvents();
     }
 
-    // Crear título del área seleccionada
+    void CreateMainPanel()
+    {
+        mainPanel = CreateUIGameObject("MainPanel", mainCanvas.transform);
+
+        Image panelImage = mainPanel.AddComponent<Image>();
+        panelImage.color = panelGrayColor; // FONDO GRIS como en la imagen
+        panelImage.sprite = veryRoundedSprite; // Sprite más redondeado
+        panelImage.type = Image.Type.Sliced;
+
+        RectTransform panelRect = mainPanel.GetComponent<RectTransform>();
+        panelRect.sizeDelta = new Vector2(540, 700); // Más alto para acomodar mejor el mensaje
+        panelRect.anchoredPosition = new Vector2(0, 0);
+    }
+
     void CreateAreaTitle()
     {
-        areaTitle = CreateUIGameObject("AreaTitle", mainCanvas.transform);
+        areaTitle = CreateUIGameObject("AreaTitle", mainPanel.transform);
 
         Text titleText = areaTitle.AddComponent<Text>();
         titleText.text = $"ÁREA: {currentAreaName.ToUpper()}";
         titleText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        titleText.fontSize = 24;
+        titleText.fontSize = 20;
         titleText.fontStyle = FontStyle.Bold;
-        titleText.color = primaryColor;
-        titleText.alignment = TextAnchor.MiddleCenter;
+        titleText.color = primaryColor; // Azul
+        titleText.alignment = TextAnchor.MiddleLeft;
 
         RectTransform titleRect = areaTitle.GetComponent<RectTransform>();
-        titleRect.sizeDelta = new Vector2(400, 40);
-        titleRect.anchoredPosition = new Vector2(0, 350);
+        titleRect.sizeDelta = new Vector2(350, 35);
+        titleRect.anchoredPosition = new Vector2(-70, 315); // Ajustado para el panel más alto
 
-        // Botón de cerrar/volver
-        CreateBackButton();
+        CreateCloseButton();
     }
 
-    // Crear botón para volver/cerrar
-    void CreateBackButton()
+    void CreateCloseButton()
     {
-        GameObject backButtonObj = CreateUIGameObject("BackButton", mainCanvas.transform);
+        GameObject closeButtonObj = CreateUIGameObject("CloseButton", mainPanel.transform);
 
-        Button backButton = backButtonObj.AddComponent<Button>();
-        Image backButtonImage = backButtonObj.AddComponent<Image>();
-        backButtonImage.color = dangerColor;
+        Button closeButton = closeButtonObj.AddComponent<Button>();
+        Image closeButtonImage = closeButtonObj.AddComponent<Image>();
+        closeButtonImage.color = lightGrayColor;
+        closeButtonImage.sprite = roundedRectSprite;
+        closeButtonImage.type = Image.Type.Sliced;
 
-        RectTransform backRect = backButtonObj.GetComponent<RectTransform>();
-        backRect.sizeDelta = new Vector2(100, 40);
-        backRect.anchoredPosition = new Vector2(-450, 350);
+        RectTransform closeRect = closeButtonObj.GetComponent<RectTransform>();
+        closeRect.sizeDelta = new Vector2(90, 30);
+        closeRect.anchoredPosition = new Vector2(200, 315); // Ajustado para el panel más alto
 
-        GameObject backTextObj = CreateUIGameObject("Text", backButtonObj.transform);
+        GameObject closeTextObj = CreateUIGameObject("Text", closeButtonObj.transform);
 
-        Text backText = backTextObj.AddComponent<Text>();
-        backText.text = "✕ CERRAR";
-        backText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        backText.fontSize = 12;
-        backText.color = Color.white;
-        backText.alignment = TextAnchor.MiddleCenter;
+        Text closeText = closeTextObj.AddComponent<Text>();
+        closeText.text = "✕ CERRAR";
+        closeText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        closeText.fontSize = 11;
+        closeText.fontStyle = FontStyle.Bold;
+        closeText.color = textDarkColor;
+        closeText.alignment = TextAnchor.MiddleCenter;
 
-        RectTransform backTextRect = backTextObj.GetComponent<RectTransform>();
-        backTextRect.sizeDelta = new Vector2(100, 40);
-        backTextRect.anchoredPosition = Vector2.zero;
+        RectTransform closeTextRect = closeTextObj.GetComponent<RectTransform>();
+        closeTextRect.sizeDelta = new Vector2(90, 30);
+        closeTextRect.anchoredPosition = Vector2.zero;
 
-        backButton.onClick.AddListener(() => {
-            Debug.Log("✅ Back button clicked! Cerrando dashboard...");
+        closeButton.onClick.AddListener(() => {
+            Debug.Log("✅ Close button clicked! Cerrando dashboard...");
             HideInterface();
 
-            // Notificar al AreaManager si existe
             AreaManager areaManager = FindObjectOfType<AreaManager>();
             if (areaManager != null)
             {
@@ -273,250 +304,335 @@ public class IndustrialDashboard : MonoBehaviour
             }
         });
 
-        AddButtonHoverEffects(backButton, dangerColor);
+        AddModernButtonHoverEffects(closeButton, lightGrayColor);
     }
 
     void CreateMainButtons()
     {
-        Debug.Log("Creando botones principales...");
+        // Botón KPIs (Azul)
+        GameObject kpisButtonObj = CreateUIGameObject("KPIs_Button", mainPanel.transform);
 
-        // Botón KPIs
-        GameObject kpisButtonObj = CreateUIGameObject("KPIs_Button", mainCanvas.transform);
-
-        // Asegurar componentes necesarios
         kpisButton = kpisButtonObj.AddComponent<Button>();
         Image kpisButtonImage = kpisButtonObj.AddComponent<Image>();
         kpisButtonImage.color = primaryColor;
+        kpisButtonImage.sprite = roundedRectSprite;
+        kpisButtonImage.type = Image.Type.Sliced;
 
-        // Configurar RectTransform del botón KPIs
         RectTransform kpisRect = kpisButtonObj.GetComponent<RectTransform>();
-        kpisRect.sizeDelta = new Vector2(200, 60);
-        kpisRect.anchoredPosition = new Vector2(-120, 250);
+        kpisRect.sizeDelta = new Vector2(240, 45);
+        kpisRect.anchoredPosition = new Vector2(-125, 250); // Ajustado para el panel más alto
 
-        // Texto del botón KPIs
         GameObject kpisTextObj = CreateUIGameObject("Text", kpisButtonObj.transform);
-
         Text kpisText = kpisTextObj.AddComponent<Text>();
         kpisText.text = "KPIs";
         kpisText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        kpisText.fontSize = 18;
+        kpisText.fontSize = 16;
+        kpisText.fontStyle = FontStyle.Bold;
         kpisText.color = Color.white;
         kpisText.alignment = TextAnchor.MiddleCenter;
 
         RectTransform kpisTextRect = kpisTextObj.GetComponent<RectTransform>();
-        kpisTextRect.sizeDelta = new Vector2(200, 60);
+        kpisTextRect.sizeDelta = new Vector2(240, 45);
         kpisTextRect.anchoredPosition = Vector2.zero;
 
-        // Botón Predicciones
-        GameObject prediccionesButtonObj = CreateUIGameObject("Predicciones_Button", mainCanvas.transform);
+        // Botón Predicciones (Verde)
+        GameObject prediccionesButtonObj = CreateUIGameObject("Predicciones_Button", mainPanel.transform);
 
         prediccionesButton = prediccionesButtonObj.AddComponent<Button>();
         Image prediccionesButtonImage = prediccionesButtonObj.AddComponent<Image>();
         prediccionesButtonImage.color = accentColor;
+        prediccionesButtonImage.sprite = roundedRectSprite;
+        prediccionesButtonImage.type = Image.Type.Sliced;
 
-        // Configurar RectTransform del botón Predicciones
         RectTransform prediccionesRect = prediccionesButtonObj.GetComponent<RectTransform>();
-        prediccionesRect.sizeDelta = new Vector2(200, 60);
-        prediccionesRect.anchoredPosition = new Vector2(120, 250);
+        prediccionesRect.sizeDelta = new Vector2(240, 45);
+        prediccionesRect.anchoredPosition = new Vector2(125, 250); // Ajustado para el panel más alto
 
-        // Texto del botón Predicciones
         GameObject prediccionesTextObj = CreateUIGameObject("Text", prediccionesButtonObj.transform);
-
         Text prediccionesText = prediccionesTextObj.AddComponent<Text>();
         prediccionesText.text = "PREDICCIONES";
         prediccionesText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        prediccionesText.fontSize = 16;
+        prediccionesText.fontSize = 13;
+        prediccionesText.fontStyle = FontStyle.Bold;
         prediccionesText.color = Color.white;
         prediccionesText.alignment = TextAnchor.MiddleCenter;
 
         RectTransform prediccionesTextRect = prediccionesTextObj.GetComponent<RectTransform>();
-        prediccionesTextRect.sizeDelta = new Vector2(200, 60);
+        prediccionesTextRect.sizeDelta = new Vector2(240, 45);
         prediccionesTextRect.anchoredPosition = Vector2.zero;
 
-        // Efectos hover para botones
-        AddButtonHoverEffects(kpisButton, primaryColor);
-        AddButtonHoverEffects(prediccionesButton, accentColor);
-
-        Debug.Log("✓ Botones creados - KPIs: " + (kpisButton != null) + ", Predicciones: " + (prediccionesButton != null));
+        AddModernButtonHoverEffects(kpisButton, primaryColor);
+        AddModernButtonHoverEffects(prediccionesButton, accentColor);
     }
 
     void CreatePanels()
     {
-        // Panel KPIs
         CreateKPIsPanel();
-
-        // Panel Predicciones
         CreatePrediccionesPanel();
     }
 
     void CreateKPIsPanel()
     {
-        kpisPanel = CreateUIGameObject("KPIs_Panel", mainCanvas.transform);
-
-        Image panelImage = kpisPanel.AddComponent<Image>();
-        panelImage.color = new Color(0.1f, 0.1f, 0.15f, 0.95f);
+        kpisPanel = CreateUIGameObject("KPIs_Panel", mainPanel.transform);
 
         RectTransform panelRect = kpisPanel.GetComponent<RectTransform>();
-        panelRect.sizeDelta = new Vector2(600, 400);
-        panelRect.anchoredPosition = new Vector2(0, 0);
+        panelRect.sizeDelta = new Vector2(500, 380); // Contenido dentro del panel
+        panelRect.anchoredPosition = new Vector2(0, 10); // Ajustado para el panel más alto
 
-        // ScrollView para KPIs (versión simplificada que funciona)
-        CreateSimpleKPIsList();
-
-        // Botón cerrar
-        CreateCloseButton(kpisPanel, "Cerrar KPIs");
-
-        kpisPanel.SetActive(false);
+        CreateModernKPIsList();
+        kpisPanel.SetActive(true); // Mostrar KPIs por defecto
     }
 
-    void CreateSimpleKPIsList()
+    void CreateModernKPIsList()
     {
         GameObject content = CreateUIGameObject("Content", kpisPanel.transform);
 
         RectTransform contentRect = content.GetComponent<RectTransform>();
-        contentRect.sizeDelta = new Vector2(580, 300);
-        contentRect.anchoredPosition = new Vector2(0, 20);
+        contentRect.sizeDelta = new Vector2(500, 380);
+        contentRect.anchoredPosition = new Vector2(0, 0);
 
         VerticalLayoutGroup layoutGroup = content.AddComponent<VerticalLayoutGroup>();
-        layoutGroup.spacing = 8f;
-        layoutGroup.padding = new RectOffset(20, 20, 20, 20);
+        layoutGroup.spacing = 12f;
+        layoutGroup.padding = new RectOffset(15, 15, 15, 15);
         layoutGroup.childControlHeight = false;
         layoutGroup.childControlWidth = true;
 
-        // Crear elementos KPI
         foreach (KPIData kpi in kpisData)
         {
-            CreateKPIElement(content, kpi);
+            CreateModernKPIElement(content, kpi);
         }
+
+        // Añadir "Overall Result" al final
+        CreateOverallResultElement(content);
+
+        // Crear alert separado FUERA del contenido principal
+        CreateImprovedAlertBox();
     }
 
-    void CreateKPIElement(GameObject parent, KPIData kpi)
+    void CreateModernKPIElement(GameObject parent, KPIData kpi)
     {
         GameObject kpiElement = CreateUIGameObject($"KPI_{kpi.name.Replace(" ", "_")}", parent.transform);
 
-        Image elementBg = kpiElement.AddComponent<Image>();
-        elementBg.color = secondaryColor;
-
         RectTransform elementRect = kpiElement.GetComponent<RectTransform>();
-        elementRect.sizeDelta = new Vector2(540, 35);
+        elementRect.sizeDelta = new Vector2(470, 48);
 
-        // Layout horizontal
         HorizontalLayoutGroup horizontalLayout = kpiElement.AddComponent<HorizontalLayoutGroup>();
-        horizontalLayout.padding = new RectOffset(15, 15, 5, 5);
-        horizontalLayout.spacing = 10f;
+        horizontalLayout.padding = new RectOffset(5, 15, 12, 12);
+        horizontalLayout.spacing = 12f;
         horizontalLayout.childControlWidth = false;
         horizontalLayout.childControlHeight = true;
         horizontalLayout.childAlignment = TextAnchor.MiddleLeft;
 
         // Nombre del KPI
         GameObject nameObj = CreateUIGameObject("Name", kpiElement.transform);
-
         Text nameText = nameObj.AddComponent<Text>();
         nameText.text = kpi.name;
         nameText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        nameText.fontSize = 12;
-        nameText.color = Color.white;
+        nameText.fontSize = 14;
+        nameText.color = textDarkColor; // Texto NEGRO
         nameText.alignment = TextAnchor.MiddleLeft;
 
         RectTransform nameRect = nameObj.GetComponent<RectTransform>();
-        nameRect.sizeDelta = new Vector2(200, 25);
+        nameRect.sizeDelta = new Vector2(150, 40);
 
-        // Barra de progreso simple (solo si hay valor)
+        // Barra de progreso
         if (kpi.value > 0)
         {
-            CreateProgressBar(kpiElement, kpi.value);
+            CreateTrueRoundedProgressBar(kpiElement, kpi.value);
         }
 
         // Valor numérico
         GameObject valueObj = CreateUIGameObject("Value", kpiElement.transform);
-
         Text valueText = valueObj.AddComponent<Text>();
-        valueText.text = kpi.value > 0 ? $"{kpi.value:F1}{kpi.unit}" : "";
+        valueText.text = kpi.value > 0 ? $"{kpi.value:F0}%" : "";
         valueText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         valueText.fontSize = 14;
         valueText.fontStyle = FontStyle.Bold;
-        valueText.color = GetKPIColor(kpi.value, kpi.name);
-        valueText.alignment = TextAnchor.MiddleCenter;
+        valueText.color = textDarkColor;
+        valueText.alignment = TextAnchor.MiddleRight;
 
         RectTransform valueRect = valueObj.GetComponent<RectTransform>();
-        valueRect.sizeDelta = new Vector2(80, 25);
+        valueRect.sizeDelta = new Vector2(50, 40);
     }
 
-    void CreateProgressBar(GameObject parent, float value)
+    void CreateOverallResultElement(GameObject parent)
     {
-        GameObject progressBarBg = CreateUIGameObject("ProgressBarBg", parent.transform);
+        GameObject overallElement = CreateUIGameObject("OverallResult", parent.transform);
+
+        RectTransform elementRect = overallElement.GetComponent<RectTransform>();
+        elementRect.sizeDelta = new Vector2(470, 48);
+
+        HorizontalLayoutGroup horizontalLayout = overallElement.AddComponent<HorizontalLayoutGroup>();
+        horizontalLayout.padding = new RectOffset(5, 15, 12, 12);
+        horizontalLayout.spacing = 12f;
+        horizontalLayout.childControlWidth = false;
+        horizontalLayout.childControlHeight = true;
+        horizontalLayout.childAlignment = TextAnchor.MiddleLeft;
+
+        // Nombre "Overall Result"
+        GameObject nameObj = CreateUIGameObject("Name", overallElement.transform);
+        Text nameText = nameObj.AddComponent<Text>();
+        nameText.text = "Overall Result";
+        nameText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        nameText.fontSize = 14;
+        nameText.color = textDarkColor;
+        nameText.alignment = TextAnchor.MiddleLeft;
+
+        RectTransform nameRect = nameObj.GetComponent<RectTransform>();
+        nameRect.sizeDelta = new Vector2(150, 40);
+
+        // Barra verde al 92%
+        CreateTrueRoundedProgressBar(overallElement, 92f);
+
+        // Valor 92%
+        GameObject valueObj = CreateUIGameObject("Value", overallElement.transform);
+        Text valueText = valueObj.AddComponent<Text>();
+        valueText.text = "92%";
+        valueText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        valueText.fontSize = 14;
+        valueText.fontStyle = FontStyle.Bold;
+        valueText.color = textDarkColor;
+        valueText.alignment = TextAnchor.MiddleRight;
+
+        RectTransform valueRect = valueObj.GetComponent<RectTransform>();
+        valueRect.sizeDelta = new Vector2(50, 40);
+    }
+
+    void CreateTrueRoundedProgressBar(GameObject parent, float value)
+    {
+        GameObject progressContainer = CreateUIGameObject("ProgressContainer", parent.transform);
+
+        RectTransform containerRect = progressContainer.GetComponent<RectTransform>();
+        containerRect.sizeDelta = new Vector2(200, 20); // Ancho ligeramente mayor
+
+        // Fondo de la barra
+        GameObject progressBarBg = CreateUIGameObject("ProgressBarBg", progressContainer.transform);
 
         Image bgImage = progressBarBg.AddComponent<Image>();
-        bgImage.color = new Color(0.2f, 0.2f, 0.2f, 1f);
+        bgImage.color = progressBgColor; // Gris claro
+        bgImage.sprite = roundedRectSprite;
+        bgImage.type = Image.Type.Sliced;
 
         RectTransform bgRect = progressBarBg.GetComponent<RectTransform>();
-        bgRect.sizeDelta = new Vector2(120, 15);
+        bgRect.sizeDelta = new Vector2(200, 12);
+        bgRect.anchoredPosition = new Vector2(0, 0);
 
+        // Barra de progreso coloreada
         GameObject progressBarFill = CreateUIGameObject("ProgressBarFill", progressBarBg.transform);
 
         Image fillImage = progressBarFill.AddComponent<Image>();
-        fillImage.color = GetProgressBarColor(value);
+        fillImage.color = GetModernProgressBarColor(value);
+        fillImage.sprite = roundedRectSprite;
+        fillImage.type = Image.Type.Sliced;
 
         RectTransform fillRect = progressBarFill.GetComponent<RectTransform>();
-        fillRect.sizeDelta = new Vector2(120 * (value / 100f), 15);
-        fillRect.anchoredPosition = new Vector2(-(120 * (1f - value / 100f)) / 2f, 0);
+        float fillWidth = 200 * (value / 100f);
+        fillRect.sizeDelta = new Vector2(fillWidth, 12);
+        fillRect.anchoredPosition = new Vector2(-(200 - fillWidth) / 2f, 0);
+    }
+
+    void CreateImprovedAlertBox()
+    {
+        // Alert box mejorado con más espacio y mejor diseño
+        GameObject alertBox = CreateUIGameObject("AlertBox", mainPanel.transform);
+
+        Image alertBg = alertBox.AddComponent<Image>();
+        alertBg.color = secondaryColor; // Fondo BLANCO
+        alertBg.sprite = roundedRectSprite;
+        alertBg.type = Image.Type.Sliced;
+
+        RectTransform alertRect = alertBox.GetComponent<RectTransform>();
+        alertRect.sizeDelta = new Vector2(500, 65); // Más alto para mejor presentación
+        alertRect.anchoredPosition = new Vector2(0, -285); // Posición ajustada para panel más grande
+
+        // Layout vertical para mejor organización
+        VerticalLayoutGroup verticalLayout = alertBox.AddComponent<VerticalLayoutGroup>();
+        verticalLayout.padding = new RectOffset(20, 20, 12, 12);
+        verticalLayout.spacing = 6f;
+        verticalLayout.childControlWidth = true;
+        verticalLayout.childControlHeight = false;
+
+        // Fila superior: Icono + Alerta principal
+        GameObject topRow = CreateUIGameObject("TopRow", alertBox.transform);
+        RectTransform topRowRect = topRow.GetComponent<RectTransform>();
+        topRowRect.sizeDelta = new Vector2(460, 28);
+
+        HorizontalLayoutGroup topRowLayout = topRow.AddComponent<HorizontalLayoutGroup>();
+        topRowLayout.spacing = 12f;
+        topRowLayout.childControlWidth = false;
+        topRowLayout.childControlHeight = true;
+        topRowLayout.childAlignment = TextAnchor.MiddleLeft;
+
+        // Icono triangular rojo más grande
+        GameObject iconObj = CreateUIGameObject("Icon", topRow.transform);
+        Text iconText = iconObj.AddComponent<Text>();
+        iconText.text = "⚠";
+        iconText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        iconText.fontSize = 22;
+        iconText.color = dangerColor;
+        iconText.alignment = TextAnchor.MiddleCenter;
+
+        RectTransform iconRect = iconObj.GetComponent<RectTransform>();
+        iconRect.sizeDelta = new Vector2(35, 28);
+
+        // Texto de alerta principal
+        GameObject alertTextObj = CreateUIGameObject("AlertText", topRow.transform);
+        Text alertText = alertTextObj.AddComponent<Text>();
+        alertText.text = "Delivery bajo riesgo";
+        alertText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        alertText.fontSize = 15;
+        alertText.fontStyle = FontStyle.Bold;
+        alertText.color = textDarkColor;
+        alertText.alignment = TextAnchor.MiddleLeft;
+
+        RectTransform alertTextRect = alertTextObj.GetComponent<RectTransform>();
+        alertTextRect.sizeDelta = new Vector2(400, 28);
+
+        // Fila inferior: Recomendación
+        GameObject bottomRow = CreateUIGameObject("BottomRow", alertBox.transform);
+        RectTransform bottomRowRect = bottomRow.GetComponent<RectTransform>();
+        bottomRowRect.sizeDelta = new Vector2(460, 22);
+
+        // Texto de recomendación con mejor espaciado
+        GameObject recomendacionObj = CreateUIGameObject("Recomendacion", bottomRow.transform);
+        Text recomendacionText = recomendacionObj.AddComponent<Text>();
+        recomendacionText.text = "• Optimización recomendada para mejorar el rendimiento del área";
+        recomendacionText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        recomendacionText.fontSize = 12;
+        recomendacionText.color = accentColor;
+        recomendacionText.alignment = TextAnchor.MiddleLeft;
+
+        RectTransform recomendacionRect = recomendacionObj.GetComponent<RectTransform>();
+        recomendacionRect.sizeDelta = new Vector2(460, 22);
+        recomendacionRect.anchoredPosition = new Vector2(47, 0); // Alineado con el texto principal
     }
 
     void CreatePrediccionesPanel()
     {
-        prediccionesPanel = CreateUIGameObject("Predicciones_Panel", mainCanvas.transform);
-
-        Image panelImage = prediccionesPanel.AddComponent<Image>();
-        panelImage.color = new Color(0.1f, 0.15f, 0.1f, 0.95f);
+        prediccionesPanel = CreateUIGameObject("Predicciones_Panel", mainPanel.transform);
 
         RectTransform panelRect = prediccionesPanel.GetComponent<RectTransform>();
-        panelRect.sizeDelta = new Vector2(700, 450);
-        panelRect.anchoredPosition = new Vector2(0, 0);
+        panelRect.sizeDelta = new Vector2(500, 380);
+        panelRect.anchoredPosition = new Vector2(0, 10); // Ajustado para el panel más alto
 
-        // Título dinámico
-        CreatePanelTitle(prediccionesPanel, $"PREDICCIONES - {currentAreaName.ToUpper()}");
-
-        // Lista simple de predicciones
-        CreateSimplePrediccionesList();
-
-        // Botón cerrar
-        CreateCloseButton(prediccionesPanel, "Cerrar Predicciones");
-
+        CreateModernPrediccionesList();
         prediccionesPanel.SetActive(false);
     }
 
-    void CreatePanelTitle(GameObject panel, string titleText)
-    {
-        GameObject titleObj = CreateUIGameObject("Title", panel.transform);
-
-        Text title = titleObj.AddComponent<Text>();
-        title.text = titleText;
-        title.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        title.fontSize = 18;
-        title.fontStyle = FontStyle.Bold;
-        title.color = accentColor;
-        title.alignment = TextAnchor.MiddleCenter;
-
-        RectTransform titleRect = titleObj.GetComponent<RectTransform>();
-        titleRect.sizeDelta = new Vector2(680, 30);
-        titleRect.anchoredPosition = new Vector2(0, 185);
-    }
-
-    void CreateSimplePrediccionesList()
+    void CreateModernPrediccionesList()
     {
         GameObject content = CreateUIGameObject("Content", prediccionesPanel.transform);
 
         RectTransform contentRect = content.GetComponent<RectTransform>();
-        contentRect.sizeDelta = new Vector2(680, 320);
-        contentRect.anchoredPosition = new Vector2(0, -10);
+        contentRect.sizeDelta = new Vector2(500, 380);
+        contentRect.anchoredPosition = new Vector2(0, 0);
 
         VerticalLayoutGroup layoutGroup = content.AddComponent<VerticalLayoutGroup>();
-        layoutGroup.spacing = 5f;
-        layoutGroup.padding = new RectOffset(20, 20, 20, 20);
+        layoutGroup.spacing = 15f;
+        layoutGroup.padding = new RectOffset(15, 15, 20, 20);
         layoutGroup.childControlHeight = false;
         layoutGroup.childControlWidth = true;
 
-        // Crear elementos de predicciones
         for (int i = 0; i < prediccionesData.Count; i++)
         {
             CreatePrediccionElement(content, prediccionesData[i], i);
@@ -527,80 +643,46 @@ public class IndustrialDashboard : MonoBehaviour
     {
         GameObject prediccionElement = CreateUIGameObject($"Prediccion_{index}", parent.transform);
 
+        // Fondo BLANCO para alta visibilidad
         Image elementBg = prediccionElement.AddComponent<Image>();
-        elementBg.color = new Color(0.15f, 0.2f, 0.15f, 0.8f);
+        elementBg.color = secondaryColor; // BLANCO PURO
+        elementBg.sprite = roundedRectSprite;
+        elementBg.type = Image.Type.Sliced;
 
         RectTransform elementRect = prediccionElement.GetComponent<RectTransform>();
-        elementRect.sizeDelta = new Vector2(640, 40);
+        elementRect.sizeDelta = new Vector2(470, 50);
 
-        // Indicador de prioridad
+        // Indicador lateral colorido más visible
         GameObject indicator = CreateUIGameObject("Indicator", prediccionElement.transform);
 
         Image indicatorImage = indicator.AddComponent<Image>();
         indicatorImage.color = GetPriorityColor(index);
 
         RectTransform indicatorRect = indicator.GetComponent<RectTransform>();
-        indicatorRect.sizeDelta = new Vector2(6, 30);
-        indicatorRect.anchoredPosition = new Vector2(-310, 0);
+        indicatorRect.sizeDelta = new Vector2(8, 40); // Más ancho para ser más visible
+        indicatorRect.anchoredPosition = new Vector2(-225, 0);
 
-        // Texto de predicción
+        // Texto de predicción con mejor contraste
         GameObject textObj = CreateUIGameObject("Text", prediccionElement.transform);
 
         Text text = textObj.AddComponent<Text>();
         text.text = prediccion;
         text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        text.fontSize = 11;
-        text.color = Color.white;
+        text.fontSize = 13;
+        text.color = textDarkColor; // Texto OSCURO sobre fondo blanco
         text.alignment = TextAnchor.MiddleLeft;
 
         RectTransform textRect = textObj.GetComponent<RectTransform>();
-        textRect.sizeDelta = new Vector2(600, 30);
-        textRect.anchoredPosition = new Vector2(20, 0);
-    }
-
-    void CreateCloseButton(GameObject panel, string buttonText)
-    {
-        GameObject closeButtonObj = CreateUIGameObject("CloseButton", panel.transform);
-
-        Button closeButton = closeButtonObj.AddComponent<Button>();
-        Image closeButtonImage = closeButtonObj.AddComponent<Image>();
-        closeButtonImage.color = warningColor;
-
-        RectTransform closeRect = closeButtonObj.GetComponent<RectTransform>();
-        closeRect.sizeDelta = new Vector2(120, 30);
-        closeRect.anchoredPosition = new Vector2(0, -190);
-
-        GameObject closeTextObj = CreateUIGameObject("Text", closeButtonObj.transform);
-
-        Text closeText = closeTextObj.AddComponent<Text>();
-        closeText.text = "✕ CERRAR";
-        closeText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        closeText.fontSize = 12;
-        closeText.color = Color.white;
-        closeText.alignment = TextAnchor.MiddleCenter;
-
-        RectTransform closeTextRect = closeTextObj.GetComponent<RectTransform>();
-        closeTextRect.sizeDelta = new Vector2(120, 30);
-        closeTextRect.anchoredPosition = Vector2.zero;
-
-        closeButton.onClick.AddListener(() => {
-            Debug.Log("✅ Close button clicked! Cerrando panel...");
-            panel.SetActive(false);
-        });
-        AddButtonHoverEffects(closeButton, warningColor);
+        textRect.sizeDelta = new Vector2(420, 40);
+        textRect.anchoredPosition = new Vector2(5, 0);
     }
 
     void SetupButtonEvents()
     {
         if (kpisButton != null && prediccionesButton != null)
         {
-            // Limpiar listeners anteriores
             kpisButton.onClick.RemoveAllListeners();
             prediccionesButton.onClick.RemoveAllListeners();
-
-            // Verificar que los botones están configurados correctamente
-            Debug.Log("KPIs Button interactable: " + kpisButton.interactable);
-            Debug.Log("Predicciones Button interactable: " + prediccionesButton.interactable);
 
             kpisButton.onClick.AddListener(() => {
                 Debug.Log("✅ KPIs button clicked! - Activando panel KPIs");
@@ -613,70 +695,34 @@ public class IndustrialDashboard : MonoBehaviour
                 prediccionesPanel.SetActive(true);
                 kpisPanel.SetActive(false);
             });
-
-            Debug.Log("✓ Event listeners agregados correctamente");
-
-            // Verificar que el EventSystem existe
-            var eventSystem = FindObjectOfType<UnityEngine.EventSystems.EventSystem>();
-            Debug.Log("EventSystem encontrado: " + (eventSystem != null));
-            if (eventSystem != null)
-            {
-                Debug.Log("EventSystem activo: " + eventSystem.gameObject.activeInHierarchy);
-            }
-        }
-        else
-        {
-            Debug.LogError("❌ Error: Botones no encontrados para configurar eventos");
-            Debug.LogError("KPIs Button: " + (kpisButton != null ? "OK" : "NULL"));
-            Debug.LogError("Predicciones Button: " + (prediccionesButton != null ? "OK" : "NULL"));
         }
     }
 
-    void AddButtonHoverEffects(Button button, Color originalColor)
+    void AddModernButtonHoverEffects(Button button, Color originalColor)
     {
         ColorBlock colors = button.colors;
         colors.normalColor = originalColor;
-        colors.highlightedColor = new Color(originalColor.r * 1.2f, originalColor.g * 1.2f, originalColor.b * 1.2f, 1f);
+        colors.highlightedColor = new Color(originalColor.r * 0.9f, originalColor.g * 0.9f, originalColor.b * 0.9f, 1f);
         colors.pressedColor = new Color(originalColor.r * 0.8f, originalColor.g * 0.8f, originalColor.b * 0.8f, 1f);
         colors.disabledColor = new Color(originalColor.r * 0.5f, originalColor.g * 0.5f, originalColor.b * 0.5f, 0.5f);
+        colors.colorMultiplier = 1f;
+        colors.fadeDuration = 0.1f;
         button.colors = colors;
     }
 
-    Color GetKPIColor(float value, string kpiName)
+    Color GetModernProgressBarColor(float value)
     {
-        // Si el valor es 0, no mostrar color específico
-        if (value <= 0) return Color.white;
-
-        // Lógica específica para diferentes KPIs
-        if (kpiName.Contains("Inactividad") || kpiName.Contains("Desperdicio"))
-        {
-            if (value <= 10f) return accentColor;      // Bueno
-            else if (value <= 20f) return warningColor; // Regular
-            else return dangerColor;                     // Malo
-        }
-        else
-        {
-            if (value >= 90f) return accentColor;       // Excelente
-            else if (value >= 75f) return warningColor; // Bueno
-            else return dangerColor;                     // Necesita atención
-        }
-    }
-
-    Color GetProgressBarColor(float value)
-    {
-        if (value >= 90f) return accentColor;
-        else if (value >= 75f) return warningColor;
-        else return dangerColor;
+        if (value >= 90f) return accentColor;        // Verde para excelente (92%, 100%)
+        else if (value >= 75f) return warningColor;  // Naranja para bueno (77%, 83%, 81%)
+        else return dangerColor;                     // Rojo para bajo
     }
 
     Color GetPriorityColor(int index)
     {
-        // Rotar entre colores de prioridad
         Color[] priorityColors = { dangerColor, warningColor, accentColor, primaryColor };
         return priorityColors[index % priorityColors.Length];
     }
 
-    // Método para forzar actualización (llamado desde AreaManager)
     public void ForceUpdate()
     {
         if (mainCanvas != null && mainCanvas.gameObject.activeInHierarchy)

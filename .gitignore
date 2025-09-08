@@ -10,8 +10,8 @@
 [Uu]ser[Ss]ettings/
 .vs/
 .idea/
-ECHO est  activado.
-## Archivos de soluci¢n y cache
+ECHO est  desactivado.
+## Archivos de solucion y cache
 *.csproj
 *.sln
 *.user
@@ -24,5 +24,5 @@ ECHO est  activado.
 *.VC.db
 *.tmp
 *.DS_Store
-ECHO est  activado.
+ECHO est  desactivado.
 ## Mantener en repo: Assets/ Packages/ ProjectSettings/
