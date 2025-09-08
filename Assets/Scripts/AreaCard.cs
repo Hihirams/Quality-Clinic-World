@@ -1,5 +1,4 @@
 ﻿using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
@@ -10,19 +9,32 @@ public class AreaCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     public string areaName;
     public AreaData areaData;
 
-    [Header("Referencias UI - Se crean automáticamente")]
+    [Header("Referencias UI (Generadas)")]
     private Canvas cardCanvas;
     private GameObject cardPanel;
     private Text areaNameText;
     private Text overallResultText;
     private Image backgroundImage;
-    private Image shadowImage;
 
-    [Header("Configuración Visual")]
+    [Header("Dimensiones de tarjeta")]
     public float cardWidth = 900f;
     public float cardHeight = 450f;
-    public float elevationHeight = 3f;
     public Vector3 cardOffset = new Vector3(0, 25, 0);
+
+    [Header("Esquinas redondeadas")]
+    [Range(2, 64)] public int cornerRadiusPx = 18;
+    [Range(32, 512)] public int roundedBaseSize = 64;
+
+    [Header("Conexión tipo globo (flecha)")]
+    public float connectionWidth = 0.18f;
+    public float connectionOpacity = 0.95f;
+    public bool inheritCardColor = true;
+    public Color connectionColor = Color.white;
+    public float pointerAttachInset = 0.008f;
+    public float pointerCurveHeight = 0.9f;
+    public float pointerBend = 0.15f;
+    public int pointerSegments = 24;
+    private LineRenderer pointerLine;
 
     [Header("Animación")]
     public float hoverScale = 1.05f;
@@ -34,42 +46,29 @@ public class AreaCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     private bool isHovering = false;
     private Camera playerCamera;
 
-    // Colores según el estado
-    private Color optimusColor = new Color(0.2f, 0.8f, 0.3f, 1f);
-    private Color healthyColor = new Color(0.1f, 0.6f, 0.9f, 1f);
-    private Color sickColor = new Color(1f, 0.7f, 0.1f, 1f);
-    private Color highRiskColor = new Color(0.95f, 0.3f, 0.3f, 1f);
+    // Paleta por estado
+    private Color optimusColor = new Color(0.20f, 0.80f, 0.30f, 1f);
+    private Color healthyColor = new Color(0.10f, 0.60f, 0.90f, 1f);
+    private Color sickColor = new Color(1.00f, 0.70f, 0.10f, 1f);
+    private Color highRiskColor = new Color(0.95f, 0.30f, 0.30f, 1f);
+
+    private static Sprite sRoundedSpriteCache;
+    private static int sCachedSize;
+    private static int sCachedRadius;
 
     void Start()
     {
-        playerCamera = Camera.main;
-        if (playerCamera == null)
-            playerCamera = FindFirstObjectByType<Camera>();
-
+        playerCamera = Camera.main ?? FindFirstObjectByType<Camera>();
         InitializeAreaData();
         CreateFloatingCard();
         SetupAreaCollider();
+        CreateConnection();
 
         originalScale = cardPanel.transform.localScale;
         originalPosition = cardPanel.transform.position;
     }
 
-    void SetupAreaCollider()
-    {
-        Collider areaCollider = GetComponent<Collider>();
-        if (areaCollider == null)
-        {
-            BoxCollider boxCollider = gameObject.AddComponent<BoxCollider>();
-            boxCollider.size = new Vector3(15f, 8f, 15f);
-            boxCollider.center = new Vector3(0, 4f, 0);
-            Debug.Log($"✓ BoxCollider agregado automáticamente a {areaName}");
-        }
-        else
-        {
-            Debug.Log($"✓ Collider existente encontrado en {areaName}");
-        }
-    }
-
+    // ------------------- Datos demo -------------------
     void InitializeAreaData()
     {
         switch (areaName.ToUpper())
@@ -77,201 +76,177 @@ public class AreaCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
             case "AT HONDA":
             case "ATHONDA":
             case "AREA_ATHONDA":
-                areaData = new AreaData
-                {
-                    areaName = "AT HONDA",
-                    delivery = 100f,
-                    quality = 83f,
-                    parts = 100f,
-                    processManufacturing = 100f,
-                    trainingDNA = 100f,
-                    mtto = 100f,
-                    overallResult = 95f
-                };
+                areaData = new AreaData { areaName = "AT HONDA", overallResult = 95f };
                 break;
-
             case "VCT L4":
             case "VCTL4":
             case "AREA_VCTL4":
-                areaData = new AreaData
-                {
-                    areaName = "VCT L4",
-                    delivery = 77f,
-                    quality = 83f,
-                    parts = 100f,
-                    processManufacturing = 100f,
-                    trainingDNA = 81f,
-                    mtto = 100f,
-                    overallResult = 92f
-                };
+                areaData = new AreaData { areaName = "VCT L4", overallResult = 92f };
                 break;
-
             case "BUZZER L2":
             case "BUZZERL2":
             case "AREA_BUZZERL2":
-                areaData = new AreaData
-                {
-                    areaName = "BUZZER L2",
-                    delivery = 91f,
-                    quality = 83f,
-                    parts = 81f,
-                    processManufacturing = 89f,
-                    trainingDNA = 62f,
-                    mtto = 100f,
-                    overallResult = 73f
-                };
+                areaData = new AreaData { areaName = "BUZZER L2", overallResult = 73f };
                 break;
-
             case "VB L1":
             case "VBL1":
             case "AREA_VBL1":
-                areaData = new AreaData
-                {
-                    areaName = "VB L1",
-                    delivery = 29f,
-                    quality = 83f,
-                    parts = 100f,
-                    processManufacturing = 32f,
-                    trainingDNA = 100f,
-                    mtto = 47f,
-                    overallResult = 49f
-                };
+                areaData = new AreaData { areaName = "VB L1", overallResult = 49f };
                 break;
-
             default:
-                Debug.LogWarning($"Área no reconocida: {areaName}. Usando datos por defecto.");
-                areaData = new AreaData
-                {
-                    areaName = areaName,
-                    delivery = 75f,
-                    quality = 80f,
-                    parts = 85f,
-                    processManufacturing = 70f,
-                    trainingDNA = 90f,
-                    mtto = 88f,
-                    overallResult = 81f
-                };
+                areaData = new AreaData { areaName = string.IsNullOrEmpty(areaName) ? "ÁREA" : areaName, overallResult = 81f };
                 break;
         }
     }
 
+    // ------------------- Tarjeta -------------------
     void CreateFloatingCard()
     {
-        // Crear Canvas para la tarjeta
         GameObject canvasObj = new GameObject($"Canvas_{areaData.areaName}");
-        canvasObj.transform.SetParent(transform);
+        canvasObj.transform.SetParent(transform, false);
         canvasObj.transform.localPosition = cardOffset;
 
         cardCanvas = canvasObj.AddComponent<Canvas>();
         cardCanvas.renderMode = RenderMode.WorldSpace;
         cardCanvas.sortingOrder = 100;
 
-        // ESCALA MÁS GRANDE para que el texto se vea mejor
         RectTransform canvasRect = canvasObj.GetComponent<RectTransform>();
         canvasRect.sizeDelta = new Vector2(cardWidth, cardHeight);
-        canvasRect.localScale = Vector3.one * 0.02f; // Escala aumentada de 0.015f a 0.02f
-
+        canvasRect.localScale = Vector3.one * 0.02f;
         canvasObj.AddComponent<GraphicRaycaster>();
 
-        // Crear sombra PRIMERO (atrás)
-        CreateCardShadow(canvasObj);
-
-        // Panel principal de la tarjeta
+        // Panel principal
         cardPanel = new GameObject("CardPanel");
         cardPanel.transform.SetParent(canvasObj.transform, false);
+        var panelRT = cardPanel.AddComponent<RectTransform>();
+        panelRT.sizeDelta = new Vector2(cardWidth, cardHeight);
+        panelRT.anchoredPosition = Vector2.zero;
 
         backgroundImage = cardPanel.AddComponent<Image>();
+        Sprite rounded = GetOrCreateRoundedSprite(roundedBaseSize, cornerRadiusPx);
+        backgroundImage.sprite = rounded;
+        backgroundImage.type = Image.Type.Sliced;
         backgroundImage.color = GetAreaColor(areaData.overallResult);
 
-        RectTransform panelRect = cardPanel.GetComponent<RectTransform>();
-        panelRect.sizeDelta = new Vector2(cardWidth, cardHeight);
-        panelRect.anchoredPosition = Vector2.zero;
-
-        // Crear contenido de la tarjeta
-        CreateCardContent();
-
-        // Configurar para que siempre mire a la cámara
-        StartCoroutine(LookAtCamera());
-    }
-
-    void CreateCardShadow(GameObject parent)
-    {
-        GameObject shadow = new GameObject("CardShadow");
-        shadow.transform.SetParent(parent.transform, false);
-        shadow.transform.SetAsFirstSibling();
-
-        RectTransform shadowRect = shadow.AddComponent<RectTransform>();
-        shadowRect.sizeDelta = new Vector2(cardWidth + 10, cardHeight + 10);
-        shadowRect.anchoredPosition = new Vector2(8, -8);
-
-        shadowImage = shadow.AddComponent<Image>();
-        shadowImage.color = new Color(0, 0, 0, 0.4f);
-    }
-
-    void CreateCardContent()
-    {
-        // NO necesitamos contenedor adicional, usar directamente el cardPanel
-        CreateAreaNameText(cardPanel);
-        CreateOverallResultText(cardPanel);
-    }
-
-    void CreateAreaNameText(GameObject parent)
-    {
+        // Título
         GameObject nameObj = new GameObject("AreaName");
-        nameObj.transform.SetParent(parent.transform, false);
-
-        RectTransform nameRect = nameObj.AddComponent<RectTransform>();
-        // El texto del área ocupa la mitad superior de la tarjeta
-        nameRect.sizeDelta = new Vector2(cardWidth - 40, cardHeight * 0.4f); // 40% de la altura
-        nameRect.anchoredPosition = new Vector2(0, cardHeight * 0.15f); // Posición en el tercio superior
+        nameObj.transform.SetParent(cardPanel.transform, false);
+        var nameRT = nameObj.AddComponent<RectTransform>();
+        nameRT.sizeDelta = new Vector2(cardWidth - 40, cardHeight * 0.4f);
+        nameRT.anchoredPosition = new Vector2(0, cardHeight * 0.15f);
 
         areaNameText = nameObj.AddComponent<Text>();
         areaNameText.text = areaData.areaName.ToUpper();
         areaNameText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-
-        // TAMAÑO DE FUENTE MASIVO para llenar el espacio
-        areaNameText.fontSize = 80; // Aumentado de 32 a 80
+        areaNameText.fontSize = 80;
         areaNameText.fontStyle = FontStyle.Bold;
         areaNameText.color = Color.white;
         areaNameText.alignment = TextAnchor.MiddleCenter;
 
-        // IMPORTANTE: Permitir que el texto se ajuste automáticamente
-        areaNameText.resizeTextForBestFit = true;
-        areaNameText.resizeTextMinSize = 30;
-        areaNameText.resizeTextMaxSize = 120;
-    }
+        // Porcentaje
+        GameObject resObj = new GameObject("OverallResult");
+        resObj.transform.SetParent(cardPanel.transform, false);
+        var resRT = resObj.AddComponent<RectTransform>();
+        resRT.sizeDelta = new Vector2(cardWidth - 40, cardHeight * 0.55f);
+        resRT.anchoredPosition = new Vector2(0, -cardHeight * 0.15f);
 
-    void CreateOverallResultText(GameObject parent)
-    {
-        GameObject resultObj = new GameObject("OverallResult");
-        resultObj.transform.SetParent(parent.transform, false);
-
-        RectTransform resultRect = resultObj.AddComponent<RectTransform>();
-        // El porcentaje ocupa la parte inferior sin solaparse
-        resultRect.sizeDelta = new Vector2(cardWidth - 40, cardHeight * 0.55f); // 55% de la altura
-        resultRect.anchoredPosition = new Vector2(0, -cardHeight * 0.15f); // Posición más abajo
-
-        overallResultText = resultObj.AddComponent<Text>();
+        overallResultText = resObj.AddComponent<Text>();
         overallResultText.text = $"{areaData.overallResult:F0}%";
         overallResultText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-
-        // TAMAÑO DE FUENTE AJUSTADO para evitar solapamiento
-        overallResultText.fontSize = 180; // Reducido de 200 a 180
+        overallResultText.fontSize = 180;
         overallResultText.fontStyle = FontStyle.Bold;
         overallResultText.color = Color.white;
         overallResultText.alignment = TextAnchor.MiddleCenter;
 
-        // IMPORTANTE: Permitir que el texto se ajuste automáticamente
-        overallResultText.resizeTextForBestFit = true;
-        overallResultText.resizeTextMinSize = 60;
-        overallResultText.resizeTextMaxSize = 220;
+        StartCoroutine(LookAtCamera());
     }
 
-    Color GetAreaColor(float overallResult)
+    void SetupAreaCollider()
     {
-        if (overallResult >= 90f) return optimusColor;
-        else if (overallResult >= 80f) return healthyColor;
-        else if (overallResult >= 70f) return sickColor;
+        if (GetComponent<Collider>() == null)
+        {
+            var box = gameObject.AddComponent<BoxCollider>();
+            box.size = new Vector3(15f, 8f, 15f);
+            box.center = new Vector3(0, 4f, 0);
+        }
+    }
+
+    // ------------------- Conexión -------------------
+    void CreateConnection()
+    {
+        GameObject go = new GameObject("BalloonPointer");
+        go.transform.SetParent(transform, false);
+
+        pointerLine = go.AddComponent<LineRenderer>();
+        pointerLine.material = CreateLineMaterial();
+
+        Color col = inheritCardColor && backgroundImage != null ? backgroundImage.color : connectionColor;
+        col.a = connectionOpacity;
+        pointerLine.startColor = col;
+        pointerLine.endColor = col;
+
+        pointerLine.numCornerVertices = 8;
+        pointerLine.numCapVertices = 8;
+        pointerLine.textureMode = LineTextureMode.Stretch;
+        pointerLine.alignment = LineAlignment.View;
+        pointerLine.useWorldSpace = true;
+        pointerLine.positionCount = Mathf.Max(8, pointerSegments);
+
+        var w = new AnimationCurve();
+        w.AddKey(0f, connectionWidth);
+        w.AddKey(0.85f, connectionWidth * 0.35f);
+        w.AddKey(1f, 0.0f);
+        pointerLine.widthCurve = w;
+
+        UpdateBalloonPointer();
+    }
+
+    void UpdateBalloonPointer()
+    {
+        if (pointerLine == null || cardPanel == null) return;
+        Vector3 startWorld = GetCardBottomWorld() - Vector3.up * pointerAttachInset;
+        Vector3 endWorld = transform.position + Vector3.up * 0.15f;
+
+        Vector3 forward = (startWorld - endWorld).normalized;
+        Vector3 side = Vector3.Cross(Vector3.up, forward).normalized;
+
+        Vector3 c1 = startWorld + Vector3.down * (pointerCurveHeight * 0.35f) + side * (pointerBend * 0.6f);
+        Vector3 c2 = Vector3.Lerp(startWorld, endWorld, 0.6f) + Vector3.down * pointerCurveHeight + side * (-pointerBend);
+
+        int n = pointerLine.positionCount;
+        for (int i = 0; i < n; i++)
+        {
+            float t = i / (n - 1f);
+            Vector3 p = CubicBezier(startWorld, c1, c2, endWorld, t);
+            pointerLine.SetPosition(i, p);
+        }
+    }
+
+    static Vector3 CubicBezier(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, float t)
+    {
+        float u = 1f - t;
+        return u * u * u * p0 + 3f * u * u * t * p1 + 3f * u * t * t * p2 + t * t * t * p3;
+    }
+
+    Vector3 GetCardBottomWorld()
+    {
+        var rt = cardPanel.GetComponent<RectTransform>();
+        Vector3 local = new Vector3(0, -rt.rect.height * 0.5f, 0);
+        return rt.TransformPoint(local);
+    }
+
+    Material CreateLineMaterial()
+    {
+        var mat = new Material(Shader.Find("Sprites/Default"));
+        mat.color = Color.white;
+        return mat;
+    }
+
+    Color GetAreaColor(float result)
+    {
+        if (result >= 90f) return optimusColor;
+        else if (result >= 80f) return healthyColor;
+        else if (result >= 70f) return sickColor;
         else return highRiskColor;
     }
 
@@ -281,8 +256,8 @@ public class AreaCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         {
             if (playerCamera != null && cardCanvas != null)
             {
-                Vector3 directionToCamera = playerCamera.transform.position - cardCanvas.transform.position;
-                cardCanvas.transform.rotation = Quaternion.LookRotation(-directionToCamera);
+                Vector3 dir = playerCamera.transform.position - cardCanvas.transform.position;
+                cardCanvas.transform.rotation = Quaternion.LookRotation(-dir);
             }
             yield return new WaitForSeconds(0.05f);
         }
@@ -292,120 +267,96 @@ public class AreaCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     {
         if (cardPanel != null)
         {
+            float floating = Mathf.Sin(Time.time * 1.5f) * floatAmplitude;
+            Vector3 targetPos = originalPosition + new Vector3(0, floating, 0);
+            cardPanel.transform.position = Vector3.Lerp(cardPanel.transform.position, targetPos, Time.deltaTime * 3f);
+
             Vector3 targetScale = isHovering ? originalScale * hoverScale : originalScale;
             cardPanel.transform.localScale = Vector3.Lerp(cardPanel.transform.localScale, targetScale, Time.deltaTime * animationSpeed);
-
-            float floatingOffset = Mathf.Sin(Time.time * 1.5f) * floatAmplitude;
-            Vector3 targetPosition = originalPosition + new Vector3(0, floatingOffset, 0);
-            cardPanel.transform.position = Vector3.Lerp(cardPanel.transform.position, targetPosition, Time.deltaTime * 3f);
-
-            if (shadowImage != null && isHovering)
-            {
-                Color shadowColor = shadowImage.color;
-                shadowColor.a = Mathf.Lerp(shadowColor.a, 0.6f, Time.deltaTime * 5f);
-                shadowImage.color = shadowColor;
-            }
-            else if (shadowImage != null)
-            {
-                Color shadowColor = shadowImage.color;
-                shadowColor.a = Mathf.Lerp(shadowColor.a, 0.4f, Time.deltaTime * 5f);
-                shadowImage.color = shadowColor;
-            }
         }
+        UpdateBalloonPointer();
     }
 
-    // Eventos de interacción
-    public void OnPointerEnter(PointerEventData eventData)
-    {
-        isHovering = true;
-        Debug.Log($"Mouse sobre área: {areaData.areaName}");
-
-        if (backgroundImage != null)
-        {
-            Color currentColor = backgroundImage.color;
-            backgroundImage.color = new Color(
-                Mathf.Min(currentColor.r * 1.1f, 1f),
-                Mathf.Min(currentColor.g * 1.1f, 1f),
-                Mathf.Min(currentColor.b * 1.1f, 1f),
-                currentColor.a
-            );
-        }
-    }
-
-    public void OnPointerExit(PointerEventData eventData)
-    {
-        isHovering = false;
-
-        if (backgroundImage != null)
-        {
-            backgroundImage.color = GetAreaColor(areaData.overallResult);
-        }
-    }
+    // ------------------- Interacción -------------------
+    public void OnPointerEnter(PointerEventData eventData) => isHovering = true;
+    public void OnPointerExit(PointerEventData eventData) => isHovering = false;
 
     public void OnPointerClick(PointerEventData eventData)
     {
-        Debug.Log($"✅ Click en área: {areaData.areaName}");
-
-        StartCoroutine(ClickAnimation());
-
-        AreaManager areaManager = FindFirstObjectByType<AreaManager>();
-        if (areaManager != null)
+        // 🔗 Al hacer click, notificar al AreaManager
+        AreaManager mgr = FindFirstObjectByType<AreaManager>();
+        if (mgr != null)
         {
-            areaManager.OnAreaClicked(this);
-        }
-        else
-        {
-            Debug.LogError("AreaManager no encontrado!");
+            mgr.OnAreaClicked(this);
         }
     }
 
-    IEnumerator ClickAnimation()
+    // ------------------- Rounded 9-slice generator -------------------
+    static Sprite GetOrCreateRoundedSprite(int texSize, int radiusPx)
     {
-        Vector3 originalScale = cardPanel.transform.localScale;
+        if (sRoundedSpriteCache != null && sCachedSize == texSize && sCachedRadius == radiusPx)
+            return sRoundedSpriteCache;
 
-        float timer = 0f;
-        while (timer < 0.1f)
+        texSize = Mathf.Max(32, texSize);
+        radiusPx = Mathf.Clamp(radiusPx, 2, texSize / 2);
+
+        var tex = new Texture2D(texSize, texSize, TextureFormat.ARGB32, false);
+        tex.wrapMode = TextureWrapMode.Clamp;
+        tex.filterMode = FilterMode.Bilinear;
+
+        Color32 opaque = new Color32(255, 255, 255, 255);
+        Color32 clear = new Color32(255, 255, 255, 0);
+
+        int w = tex.width, h = tex.height, r = radiusPx;
+        for (int y = 0; y < h; y++)
         {
-            float scale = Mathf.Lerp(1f, 0.95f, timer / 0.1f);
-            cardPanel.transform.localScale = originalScale * scale;
-            timer += Time.deltaTime;
-            yield return null;
+            for (int x = 0; x < w; x++)
+            {
+                bool inCorner =
+                    (x < r && y < r) || (x < r && y >= h - r) ||
+                    (x >= w - r && y < r) || (x >= w - r && y >= h - r);
+
+                if (!inCorner)
+                {
+                    tex.SetPixel(x, y, opaque);
+                }
+                else
+                {
+                    int cx = (x < r) ? r - 1 : (x >= w - r ? w - r : x);
+                    int cy = (y < r) ? r - 1 : (y >= h - r ? h - r : y);
+
+                    if (x < r && y < r) { cx = r - 1; cy = r - 1; }
+                    else if (x < r && y >= h - r) { cx = r - 1; cy = h - r; }
+                    else if (x >= w - r && y < r) { cx = w - r; cy = r - 1; }
+                    else if (x >= w - r && y >= h - r) { cx = w - r; cy = h - r; }
+
+                    float dx = x - cx;
+                    float dy = y - cy;
+                    float distSq = dx * dx + dy * dy;
+
+                    if (distSq <= (r - 1) * (r - 1))
+                        tex.SetPixel(x, y, opaque);
+                    else
+                        tex.SetPixel(x, y, clear);
+                }
+            }
         }
+        tex.Apply();
 
-        timer = 0f;
-        while (timer < 0.1f)
-        {
-            float scale = Mathf.Lerp(0.95f, 1f, timer / 0.1f);
-            cardPanel.transform.localScale = originalScale * scale;
-            timer += Time.deltaTime;
-            yield return null;
-        }
+        Vector4 border = new Vector4(radiusPx, radiusPx, radiusPx, radiusPx);
+        var sprite = Sprite.Create(tex, new Rect(0, 0, texSize, texSize), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, border);
 
-        cardPanel.transform.localScale = originalScale;
-    }
-
-    // Métodos públicos para obtener datos
-    public AreaData GetAreaData()
-    {
-        return areaData;
-    }
-
-    public string GetAreaName()
-    {
-        return areaData.areaName;
+        sRoundedSpriteCache = sprite;
+        sCachedSize = texSize;
+        sCachedRadius = radiusPx;
+        return sprite;
     }
 }
 
-// Estructura para datos de área
+// ------------------- Datos mínimos -------------------
 [System.Serializable]
 public class AreaData
 {
     public string areaName;
-    public float delivery;
-    public float quality;
-    public float parts;
-    public float processManufacturing;
-    public float trainingDNA;
-    public float mtto;
     public float overallResult;
 }

@@ -32,16 +32,16 @@ public class FreeCameraController : MonoBehaviour
 
     void Start()
     {
-        // Posición inicial estilo Sims (vista isométrica elevada)
-        transform.position = new Vector3(0, 25, -20);
-        transform.rotation = Quaternion.Euler(45f, 0f, 0f);
+        // Posición/rotación inicial solicitadas
+        transform.position = new Vector3(-78.38f, 25f, -33.06f);
+        transform.rotation = Quaternion.Euler(10f, 41.1f, 0f);
 
         targetPosition = transform.position;
 
         // Obtener rotación inicial
         Vector3 euler = transform.eulerAngles;
-        rotationX = euler.y;
-        rotationY = euler.x;
+        rotationX = euler.y; // 41.1
+        rotationY = euler.x; // 10
 
         Debug.Log("Cámara libre estilo Sims inicializada");
         Debug.Log("Controles:");
@@ -232,15 +232,15 @@ public class FreeCameraController : MonoBehaviour
 
     public void ResetCamera()
     {
-        // Posición estilo Sims clásica
-        targetPosition = new Vector3(0, 25, -20);
-        rotationX = 0f;
-        rotationY = 45f;
+        // Restablecer a la vista inicial solicitada
+        targetPosition = new Vector3(-78.38f, 25f, -33.06f);
+        rotationX = 41.1f;
+        rotationY = 10f;
 
         transform.position = targetPosition;
-        transform.rotation = Quaternion.Euler(rotationY, rotationX, 0f);
+        transform.rotation = Quaternion.Euler(10f, 41.1f, 0f);
 
-        Debug.Log("Cámara reseteada a vista estilo Sims");
+        Debug.Log("Cámara reseteada a la vista inicial personalizada");
     }
 
     public void FocusOnArea(Transform areaTransform, float distance = 20f)
