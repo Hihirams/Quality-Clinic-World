@@ -192,36 +192,42 @@ public class IndustrialDashboard : MonoBehaviour
         return obj;
     }
 
+    // En IndustrialDashboard.cs
     void CreateMainCanvas()
     {
-        mainCanvas = FindObjectOfType<Canvas>();
-
-        if (mainCanvas == null)
+        // 1) Usar SOLO un canvas llamado "UI_Canvas"
+        GameObject existing = GameObject.Find("UI_Canvas");
+        if (existing != null)
         {
+            mainCanvas = existing.GetComponent<Canvas>();
+        }
+        else
+        {
+            // 2) Si no existe, créalo (no uses FindObjectOfType<Canvas>())
             GameObject canvasObj = new GameObject("UI_Canvas");
             mainCanvas = canvasObj.AddComponent<Canvas>();
-
             mainCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
             mainCanvas.sortingOrder = 100;
 
-            CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
+            var scaler = canvasObj.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920, 1080);
-            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
             scaler.matchWidthOrHeight = 0.5f;
 
             canvasObj.AddComponent<GraphicRaycaster>();
-            Debug.Log("✓ Canvas principal creado automáticamente");
+            Debug.Log("✓ Canvas principal creado automáticamente (UI_Canvas)");
         }
 
-        if (FindObjectOfType<UnityEngine.EventSystems.EventSystem>() == null)
+        // EventSystem asegurado
+        if (FindObjectOfType<EventSystem>() == null)
         {
-            GameObject eventSystemObj = new GameObject("EventSystem");
-            eventSystemObj.AddComponent<UnityEngine.EventSystems.EventSystem>();
-            eventSystemObj.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+            GameObject es = new GameObject("EventSystem");
+            es.AddComponent<EventSystem>();
+            es.AddComponent<StandaloneInputModule>();
             Debug.Log("✓ EventSystem creado automáticamente");
         }
     }
+
 
     void SetupMainInterface()
     {

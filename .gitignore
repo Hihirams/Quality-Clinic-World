@@ -1,28 +1,16 @@
-## Unity - ignora artefactos regenerables
-[Ll]ibrary/
-[Tt]emp/
-[Oo]bj/
-[Bb]uild/
-[Bb]uilds/
-[Ll]ogs/
-[Mm]emoryCaptures/
-[Gg]radle/
-[Uu]ser[Ss]ettings/
-.vs/
-.idea/
-ECHO est† desactivado.
-## Archivos de solucion y cache
-*.csproj
-*.sln
-*.user
-*.userprefs
-*.pidb
-*.svd
-*.pdb
-*.mdb
-*.opendb
-*.VC.db
-*.tmp
-*.DS_Store
-ECHO est† desactivado.
-## Mantener en repo: Assets/ Packages/ ProjectSettings/
+# Ignora todo por defecto
+/*
+
+# Mant√©n solo estos archivos y carpetas en el repo
+!.gitignore
+!.gitattributes
+!.vsconfig
+!update.bat
+!Assets/
+!Packages/
+!ProjectSettings/
+
+# Asegura que todo el contenido interno de esas carpetas s√≠ se trackee
+!Assets/**
+!Packages/**
+!ProjectSettings/**
