@@ -75,6 +75,14 @@ public class AreaCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         originalPosition = cardPanel.transform.position;
     }
 
+    // Permite mostrar/ocultar la tarjeta completa desde otros scripts (OverlayPainter)
+    public void SetCardActive(bool active)
+    {
+        if (cardCanvas != null) cardCanvas.gameObject.SetActive(active);
+        if (pointerLine != null) pointerLine.gameObject.SetActive(active);
+    }
+
+
     // ------------------- Datos demo -------------------
     void InitializeAreaData()
     {
@@ -388,26 +396,40 @@ public class AreaCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     }
 
     // ------------------- API para Top-Down -------------------
-    /// <summary>
-    /// (1)(3)(4) Llamado por AreaManager al alternar la cámara (TopDown/Libre).
-    /// Ajusta legibilidad, tamaños de fuente y colores de mayor contraste.
-    /// </summary>
+    // REEMPLAZADO COMPLETAMENTE SEGÚN TU INDICACIÓN:
     public void SetTopDownMode(bool enabled)
     {
         topDownEnabled = enabled;
 
-        // (1) Escala base inmediata para notar el cambio
+        // Verificar si estamos usando vista fija estática
+        var topDownController = Camera.main?.GetComponent<TopDownCameraController>();
+        bool isStaticView = topDownController != null &&
+                            topDownController.IsUsingFixedStaticView() && enabled;
+
+        // Ocultar completamente las tarjetas en vista estática para evitar temblores
+        if (isStaticView)
+        {
+            if (cardCanvas != null) cardCanvas.gameObject.SetActive(false);
+            if (pointerLine != null) pointerLine.gameObject.SetActive(false);
+            return;
+        }
+        else
+        {
+            // Mostrar tarjetas cuando no estemos en vista estática
+            if (cardCanvas != null) cardCanvas.gameObject.SetActive(true);
+            if (pointerLine != null) pointerLine.gameObject.SetActive(true);
+        }
+
+        // Resto del código existente para vista top-down dinámica
         if (cardPanel != null)
         {
             Vector3 baseScale = enabled ? originalScale * topDownScaleMultiplier : originalScale;
             cardPanel.transform.localScale = baseScale;
         }
 
-        // (3) Tipografías más grandes en Top-Down
         if (areaNameText != null)
         {
             areaNameText.resizeTextMaxSize = enabled ? 120 : 110;
-            // En Top-Down permitimos subir un poco la base si hay espacio
             areaNameText.fontSize = enabled ? 92 : 84;
         }
         if (overallResultText != null)
@@ -416,7 +438,6 @@ public class AreaCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
             overallResultText.fontSize = enabled ? 210 : 190;
         }
 
-        // (4) Refrescar color con boost de contraste en Top-Down
         if (backgroundImage != null)
         {
             var c = GetAreaColor(areaData.overallResult);

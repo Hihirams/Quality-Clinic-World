@@ -119,7 +119,7 @@ public class AppleStyleExitButton : MonoBehaviour
         rt.anchorMin = rt.anchorMax = new Vector2(1, 1);
         rt.pivot = new Vector2(1, 1);
         rt.sizeDelta = new Vector2(BTN_SIZE, BTN_SIZE);
-        rt.anchoredPosition = new Vector2(-20, -20);
+        rt.anchoredPosition = new Vector2(-20, -10);
 
         var img = go.GetComponent<Image>();
         img.sprite = roundedBtn; img.type = Image.Type.Sliced;
