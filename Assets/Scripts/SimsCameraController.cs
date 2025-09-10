@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using UnityEngine.EventSystems;
 
 public class FreeCameraController : MonoBehaviour
 {
@@ -73,34 +74,36 @@ public class FreeCameraController : MonoBehaviour
         }
     }
 
+    // --- UI Guard: true si el puntero está sobre la UI ---
+    bool IsPointerOverUI()
+    {
+        return EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+    }
+
     void HandleKeyboardMovement()
     {
         bool isFastMove = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
         float currentSpeed = isFastMove ? fastMoveSpeed : moveSpeed;
 
-        // Obtener input
         float horizontal = Input.GetAxisRaw("Horizontal"); // A/D
         float vertical = Input.GetAxisRaw("Vertical");     // W/S
 
         if (horizontal != 0 || vertical != 0)
         {
-            // Calcular direcciones relativas a la rotación actual de la cámara
             Vector3 forward = transform.forward;
             Vector3 right = transform.right;
 
-            // Para movimiento estilo Sims, mantenemos movimiento horizontal
+            // Mantener movimiento horizontal
             forward.y = 0;
             right.y = 0;
             forward.Normalize();
             right.Normalize();
 
-            // Calcular movimiento
             Vector3 moveDirection = (forward * vertical + right * horizontal).normalized;
             Vector3 movement = moveDirection * currentSpeed * Time.deltaTime;
 
             targetPosition += movement;
 
-            // Aplicar límites del mapa solo si están habilitados
             if (useBounds)
             {
                 ApplyMapBounds();
@@ -110,14 +113,21 @@ public class FreeCameraController : MonoBehaviour
 
     void HandleMouseControls()
     {
-        // ROTACIÓN - Click derecho
-        if (Input.GetMouseButtonDown(1))
+        // ========= ROTACIÓN (Click derecho) =========
+        if (Input.GetMouseButtonDown(1) && !IsPointerOverUI())
         {
             isDragging = true;
             Cursor.lockState = CursorLockMode.Locked;
         }
 
         if (Input.GetMouseButtonUp(1))
+        {
+            isDragging = false;
+            Cursor.lockState = CursorLockMode.None;
+        }
+
+        // Si durante el drag el puntero entra a la UI, cancelar para no “cruzar” inputs
+        if (isDragging && IsPointerOverUI())
         {
             isDragging = false;
             Cursor.lockState = CursorLockMode.None;
@@ -135,14 +145,20 @@ public class FreeCameraController : MonoBehaviour
             rotationY = Mathf.Clamp(rotationY, 10f, 80f);
         }
 
-        // PAN - Click medio (movimiento tipo "arrastrar el mundo")
-        if (Input.GetMouseButtonDown(2))
+        // ========= PAN (Click medio) =========
+        if (Input.GetMouseButtonDown(2) && !IsPointerOverUI())
         {
             isPanning = true;
             lastMouseWorldPos = GetMouseWorldPosition();
         }
 
         if (Input.GetMouseButtonUp(2))
+        {
+            isPanning = false;
+        }
+
+        // Si durante el pan el puntero entra a la UI, cancelar
+        if (isPanning && IsPointerOverUI())
         {
             isPanning = false;
         }
@@ -165,7 +181,7 @@ public class FreeCameraController : MonoBehaviour
 
     Vector3 GetMouseWorldPosition()
     {
-        // Crear un plano a la altura promedio del mapa para el pan
+        // Plano a la altura 0 para pan
         Plane plane = new Plane(Vector3.up, Vector3.zero);
         Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
 
@@ -179,6 +195,9 @@ public class FreeCameraController : MonoBehaviour
 
     void HandleZoom()
     {
+        // *** Bloquear zoom si el puntero está sobre UI (scroll del panel de detalle, etc.) ***
+        if (IsPointerOverUI()) return;
+
         float scroll = Input.GetAxis("Mouse ScrollWheel");
 
         if (Mathf.Abs(scroll) > 0.01f)
@@ -187,7 +206,6 @@ public class FreeCameraController : MonoBehaviour
             float zoomAmount = scroll * zoomSpeed;
             targetPosition.y += zoomAmount;
 
-            // Limitar altura solo si los límites están habilitados
             if (useBounds)
             {
                 targetPosition.y = Mathf.Clamp(targetPosition.y, minHeight, maxHeight);
@@ -253,27 +271,21 @@ public class FreeCameraController : MonoBehaviour
 
         Vector3 areaPosition = areaTransform.position;
 
-        // DEBUG CRÍTICO: Verificar qué área se está enfocando
+        // DEBUG CRÍTICO
         Debug.Log($"🎯 FOCUS ON AREA LLAMADO:");
         Debug.Log($"🎯 Área: {areaTransform.name}");
         Debug.Log($"🎯 Posición del área: {areaPosition}");
         Debug.Log($"🎯 Posición actual de la cámara: {transform.position}");
 
-        // Posicionar la cámara en una vista isométrica del área
-        // CORRECCIÓN: Usar directamente la posición del área sin modificaciones
+        // Vista isométrica del área
         Vector3 offset = new Vector3(-distance * 0.7f, distance * 0.8f, -distance * 0.7f);
         targetPosition = areaPosition + offset;
-
-        // Verificar que la nueva posición sea diferente
-        Debug.Log($"🎯 Nueva posición target: {targetPosition}");
-        Debug.Log($"🎯 Offset aplicado: {offset}");
 
         // Apuntar hacia el área
         Vector3 direction = (areaPosition - targetPosition).normalized;
         float newRotationX = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg;
         float newRotationY = Mathf.Asin(-direction.y) * Mathf.Rad2Deg;
 
-        // CORRECCIÓN: Asegurar ángulos válidos
         newRotationY = Mathf.Clamp(newRotationY, 10f, 80f);
 
         rotationX = newRotationX;
@@ -282,7 +294,6 @@ public class FreeCameraController : MonoBehaviour
         Debug.Log($"🎯 Nueva rotación X: {rotationX}, Y: {rotationY}");
         Debug.Log($"🎯 Cámara enfocada en área: {areaTransform.name}");
 
-        // Verificar si hay diferencias significativas en posición
         float distanceToTarget = Vector3.Distance(transform.position, targetPosition);
         if (distanceToTarget < 1f)
         {

@@ -37,16 +37,23 @@ public class AreaCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     private LineRenderer pointerLine;
 
     [Header("Animación")]
-    public float hoverScale = 1.05f;
-    public float animationSpeed = 8f;
-    public float floatAmplitude = 0.3f;
+    public float hoverScale = 1.30f;
+    public float animationSpeed = 13f;
+    public float floatAmplitude = 1.5f;
+
+    [Header("Top-Down")]
+    [Tooltip("Aumenta la escala para legibilidad en vista top-down.")]
+    public float topDownScaleMultiplier = 1.35f; // ⬆️ 1.15f -> 1.35f
+    [Tooltip("En Top-Down, rota sólo sobre Y para un billboard limpio.")]
+    public bool yawOnlyInTopDown = true;
 
     private Vector3 originalScale;
     private Vector3 originalPosition;
     private bool isHovering = false;
+    private bool topDownEnabled = false;
     private Camera playerCamera;
 
-    // Paleta por estado
+    // Paleta por estado (base)
     private Color optimusColor = new Color(0.20f, 0.80f, 0.30f, 1f);
     private Color healthyColor = new Color(0.10f, 0.60f, 0.90f, 1f);
     private Color sickColor = new Color(1.00f, 0.70f, 0.10f, 1f);
@@ -71,7 +78,7 @@ public class AreaCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     // ------------------- Datos demo -------------------
     void InitializeAreaData()
     {
-        switch (areaName.ToUpper())
+        switch ((areaName ?? "").ToUpper())
         {
             case "AT HONDA":
             case "ATHONDA":
@@ -138,10 +145,13 @@ public class AreaCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         areaNameText = nameObj.AddComponent<Text>();
         areaNameText.text = areaData.areaName.ToUpper();
         areaNameText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        areaNameText.fontSize = 80;
+        areaNameText.fontSize = 84;                 // ⬆️ un poco mayor base
         areaNameText.fontStyle = FontStyle.Bold;
         areaNameText.color = Color.white;
         areaNameText.alignment = TextAnchor.MiddleCenter;
+        areaNameText.resizeTextForBestFit = true;
+        areaNameText.resizeTextMinSize = 26;
+        areaNameText.resizeTextMaxSize = 110;       // ⬆️ max para Top-Down
 
         // Porcentaje
         GameObject resObj = new GameObject("OverallResult");
@@ -153,10 +163,13 @@ public class AreaCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         overallResultText = resObj.AddComponent<Text>();
         overallResultText.text = $"{areaData.overallResult:F0}%";
         overallResultText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        overallResultText.fontSize = 180;
+        overallResultText.fontSize = 190;           // ⬆️ base
         overallResultText.fontStyle = FontStyle.Bold;
         overallResultText.color = Color.white;
         overallResultText.alignment = TextAnchor.MiddleCenter;
+        overallResultText.resizeTextForBestFit = true;
+        overallResultText.resizeTextMinSize = 68;
+        overallResultText.resizeTextMaxSize = 240;  // ⬆️ max para Top-Down
 
         StartCoroutine(LookAtCamera());
     }
@@ -204,25 +217,42 @@ public class AreaCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     void UpdateBalloonPointer()
     {
         if (pointerLine == null || cardPanel == null) return;
-        Vector3 startWorld = GetCardBottomWorld() - Vector3.up * pointerAttachInset;
-        Vector3 endWorld = transform.position + Vector3.up * 0.15f;
 
-        Vector3 forward = (startWorld - endWorld).normalized;
-        Vector3 side = Vector3.Cross(Vector3.up, forward).normalized;
+        // Puntos del bezier desde la base inferior de la tarjeta hacia el objeto (centro)
+        Vector3 startWorld = GetCardBottomWorld();
+        Vector3 endWorld = transform.position + Vector3.up * (pointerAttachInset * Mathf.Max(1f, transform.localScale.y));
 
-        Vector3 c1 = startWorld + Vector3.down * (pointerCurveHeight * 0.35f) + side * (pointerBend * 0.6f);
-        Vector3 c2 = Vector3.Lerp(startWorld, endWorld, 0.6f) + Vector3.down * pointerCurveHeight + side * (-pointerBend);
+        // Curva con ligera elevación y flexión
+        Vector3 dir = (endWorld - startWorld);
+        float len = dir.magnitude;
+        if (len < 0.001f) len = 0.001f;
+        Vector3 nrm = dir / len;
 
-        int n = pointerLine.positionCount;
-        for (int i = 0; i < n; i++)
+        Vector3 p0 = startWorld;
+        Vector3 p3 = endWorld;
+        Vector3 up = Vector3.up * (pointerCurveHeight * Mathf.Clamp(len, 0.25f, 8f));
+        Vector3 bend = Vector3.Cross(nrm, Vector3.up) * (pointerBend * len);
+
+        Vector3 p1 = p0 + up * 0.5f + bend * 0.25f;
+        Vector3 p2 = p3 - up * 0.5f - bend * 0.25f;
+
+        int segs = Mathf.Max(8, pointerSegments);
+        pointerLine.positionCount = segs;
+        for (int i = 0; i < segs; i++)
         {
-            float t = i / (n - 1f);
-            Vector3 p = CubicBezier(startWorld, c1, c2, endWorld, t);
-            pointerLine.SetPosition(i, p);
+            float t = i / (segs - 1f);
+            pointerLine.SetPosition(i, CubicBezier(p0, p1, p2, p3, t));
+        }
+
+        // Color dinámico según fondo
+        if (inheritCardColor && backgroundImage != null)
+        {
+            var c = backgroundImage.color; c.a = connectionOpacity;
+            pointerLine.startColor = c; pointerLine.endColor = c;
         }
     }
 
-    static Vector3 CubicBezier(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, float t)
+    Vector3 CubicBezier(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, float t)
     {
         float u = 1f - t;
         return u * u * u * p0 + 3f * u * u * t * p1 + 3f * u * t * t * p2 + t * t * t * p3;
@@ -242,12 +272,24 @@ public class AreaCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         return mat;
     }
 
+    // (4) Colores más contrastantes en Top-Down
     Color GetAreaColor(float result)
     {
-        if (result >= 90f) return optimusColor;
-        else if (result >= 80f) return healthyColor;
-        else if (result >= 70f) return sickColor;
-        else return highRiskColor;
+        Color baseCol =
+            (result >= 90f) ? optimusColor :
+            (result >= 80f) ? healthyColor :
+            (result >= 70f) ? sickColor :
+                              highRiskColor;
+
+        if (!topDownEnabled) return baseCol;
+
+        // Boost de contraste/claridad en Top-Down (ligero aumento de brillo y saturación)
+        Color.RGBToHSV(baseCol, out float h, out float s, out float v);
+        s = Mathf.Clamp01(s * 1.10f);   // +10% saturación
+        v = Mathf.Clamp01(v * 1.08f);   // +8% brillo
+        var boosted = Color.HSVToRGB(h, s, v);
+        boosted.a = baseCol.a;
+        return boosted;
     }
 
     IEnumerator LookAtCamera()
@@ -256,24 +298,78 @@ public class AreaCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         {
             if (playerCamera != null && cardCanvas != null)
             {
-                Vector3 dir = playerCamera.transform.position - cardCanvas.transform.position;
-                cardCanvas.transform.rotation = Quaternion.LookRotation(-dir);
+                if (topDownEnabled)
+                {
+                    if (yawOnlyInTopDown)
+                    {
+                        // --- ROTACIÓN PLANA (vista desde arriba) ---
+                        // Siempre orientar el canvas hacia arriba y sin inclinación
+                        cardCanvas.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+                    }
+                    else
+                    {
+                        // Billboard clásico pero con solo yaw
+                        Vector3 toCam = playerCamera.transform.position - cardCanvas.transform.position;
+                        toCam.y = 0f; // sólo giro sobre Y
+                        if (toCam.sqrMagnitude > 0.0001f)
+                            cardCanvas.transform.rotation = Quaternion.LookRotation(-toCam);
+                    }
+                }
+                else
+                {
+                    // --- MODO LIBRE normal ---
+                    Vector3 dir = playerCamera.transform.position - cardCanvas.transform.position;
+                    cardCanvas.transform.rotation = Quaternion.LookRotation(-dir);
+                }
             }
             yield return new WaitForSeconds(0.05f);
         }
     }
 
+
+    // (2) Billboard más robusto: también lo aplicamos desde Update para vistas estáticas o si el coroutine se queda desfasado
+    void ApplyBillboardRotation()
+    {
+        if (playerCamera == null || cardCanvas == null) return;
+
+        if (topDownEnabled && yawOnlyInTopDown)
+        {
+            // Proyectar la dirección a la cámara en el plano XZ para giro solo en Y
+            Vector3 toCam = playerCamera.transform.position - cardCanvas.transform.position;
+            toCam.y = 0f;
+            if (toCam.sqrMagnitude > 0.0001f)
+            {
+                Quaternion target = Quaternion.LookRotation(-toCam.normalized);
+                // slerp suave para evitar jitter cuando la cámara está casi estática
+                cardCanvas.transform.rotation = Quaternion.Slerp(cardCanvas.transform.rotation, target, Time.deltaTime * 8f);
+            }
+        }
+        else
+        {
+            Vector3 dir = playerCamera.transform.position - cardCanvas.transform.position;
+            Quaternion target = Quaternion.LookRotation(-dir.normalized);
+            cardCanvas.transform.rotation = Quaternion.Slerp(cardCanvas.transform.rotation, target, Time.deltaTime * 8f);
+        }
+    }
+
     void Update()
     {
+        // (2) Refuerzo del billboard en cada frame — útil en vista estática Top-Down
+        ApplyBillboardRotation();
+
         if (cardPanel != null)
         {
+            // Flotación sutil
             float floating = Mathf.Sin(Time.time * 1.5f) * floatAmplitude;
             Vector3 targetPos = originalPosition + new Vector3(0, floating, 0);
             cardPanel.transform.position = Vector3.Lerp(cardPanel.transform.position, targetPos, Time.deltaTime * 3f);
 
-            Vector3 targetScale = isHovering ? originalScale * hoverScale : originalScale;
+            // Escala con hover; en Top-Down parte de una base mayor (1.35x)
+            Vector3 baseScale = topDownEnabled ? originalScale * topDownScaleMultiplier : originalScale;
+            Vector3 targetScale = isHovering ? baseScale * hoverScale : baseScale;
             cardPanel.transform.localScale = Vector3.Lerp(cardPanel.transform.localScale, targetScale, Time.deltaTime * animationSpeed);
         }
+
         UpdateBalloonPointer();
     }
 
@@ -283,11 +379,48 @@ public class AreaCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 
     public void OnPointerClick(PointerEventData eventData)
     {
-        // 🔗 Al hacer click, notificar al AreaManager
+        // 🔗 Al hacer click, notificar al AreaManager (usa la firma que espera tu manager)
         AreaManager mgr = FindFirstObjectByType<AreaManager>();
         if (mgr != null)
         {
             mgr.OnAreaClicked(this);
+        }
+    }
+
+    // ------------------- API para Top-Down -------------------
+    /// <summary>
+    /// (1)(3)(4) Llamado por AreaManager al alternar la cámara (TopDown/Libre).
+    /// Ajusta legibilidad, tamaños de fuente y colores de mayor contraste.
+    /// </summary>
+    public void SetTopDownMode(bool enabled)
+    {
+        topDownEnabled = enabled;
+
+        // (1) Escala base inmediata para notar el cambio
+        if (cardPanel != null)
+        {
+            Vector3 baseScale = enabled ? originalScale * topDownScaleMultiplier : originalScale;
+            cardPanel.transform.localScale = baseScale;
+        }
+
+        // (3) Tipografías más grandes en Top-Down
+        if (areaNameText != null)
+        {
+            areaNameText.resizeTextMaxSize = enabled ? 120 : 110;
+            // En Top-Down permitimos subir un poco la base si hay espacio
+            areaNameText.fontSize = enabled ? 92 : 84;
+        }
+        if (overallResultText != null)
+        {
+            overallResultText.resizeTextMaxSize = enabled ? 260 : 240;
+            overallResultText.fontSize = enabled ? 210 : 190;
+        }
+
+        // (4) Refrescar color con boost de contraste en Top-Down
+        if (backgroundImage != null)
+        {
+            var c = GetAreaColor(areaData.overallResult);
+            backgroundImage.color = c;
         }
     }
 

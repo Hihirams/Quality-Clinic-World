@@ -1,5 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems; // <- para detectar si el puntero está sobre UI
+using UnityEngine.UI;          // <- para crear el botón UI de alternar cámara
 
 public class AreaManager : MonoBehaviour
 {
@@ -12,13 +16,12 @@ public class AreaManager : MonoBehaviour
     [Header("Configuración de Debug")]
     public bool enableDebugMode = true;
 
-    // Lista de datos de las áreas
+    // ===== Datos por área (igual que tenías) =====
     private Dictionary<string, AreaData> areaDataDict = new Dictionary<string, AreaData>();
 
-    // SOLUCION: Solo registrar posiciones reales, NO mover objetos
+    // Solo registrar posiciones REALES (no mover objetos)
     private Dictionary<string, Vector3> realAreaPositions = new Dictionary<string, Vector3>();
 
-    // Estructura para datos de área
     [System.Serializable]
     public class AreaData
     {
@@ -35,283 +38,539 @@ public class AreaManager : MonoBehaviour
         public Color statusColor;
     }
 
+    // ====== Integración Top-Down ======
+    [Header("Vista Top-Down")]
+    public bool enableTopDownView = true;
+
+    [Tooltip("Margen para que el mapa quepa holgado en Top-Down (1.0 exacto, >1 = más aire)")]
+    public float fitPadding = 2.0f; // ⬅ subido de 1.6f a 2.0f
+
+    private TopDownCameraController topDownController;
+    private bool isInTopDownMode = false;
+    private readonly List<AreaCard> areaCards = new List<AreaCard>();
+
+    // ====== Botón UI para alternar cámara (UI_Canvas) ======
+    private Button cameraToggleButton;
+    private Text cameraToggleText;
+
     void Start()
     {
         InitializeAreaData();
 
-        // Buscar dashboard automáticamente si no está asignado
+        // Hallar dashboard si no está asignado
         if (dashboard == null)
         {
             dashboard = FindFirstObjectByType<IndustrialDashboard>();
-            if (dashboard != null)
-            {
-                Debug.Log("Dashboard encontrado automáticamente");
-            }
-            else
+            if (dashboard == null)
             {
                 Debug.LogError("No se encontró IndustrialDashboard en la escena");
                 return;
             }
+            Debug.Log("Dashboard encontrado automáticamente");
         }
 
-        // Buscar áreas automáticamente si la lista está vacía
+        // Delegado de detalle dinámico
+        dashboard.ProvideDetail = (areaDisplayName, kpi) => GenerateDetailText(areaDisplayName, kpi);
+
+        // Si no tienes áreas configuradas a mano, intenta encontrarlas
         if (areaObjects.Count == 0)
         {
             FindAreasAutomatically();
         }
 
-        // SOLUCION: Solo registrar posiciones REALES, no resolver conflictos
+        // Registrar SOLO posiciones actuales (no modificar nada en escena)
         RegisterRealAreaPositions();
 
-        // Crear tarjetas para todas las áreas encontradas
+        // Crear tarjetas (se agregan automáticamente a cada área)
         CreateAreaCards();
 
         // Ocultar dashboard al inicio
-        if (dashboard != null)
+        dashboard.HideInterface();
+
+        // ---- Integración Top-Down + Botón (tras 1 frame para dejar que UI/AreaCards se generen) ----
+        StartCoroutine(SetupTopDownLate());
+    }
+
+    IEnumerator SetupTopDownLate()
+    {
+        yield return null; // esperar un frame a que UI_Canvas/AreaCards existan
+
+        if (enableTopDownView)
         {
-            dashboard.HideInterface();
+            SetupTopDownCamera();      // Calcula centro/tamaño + padding y aplica en TopDownCameraController
+            CollectAreaCardsAuto();    // Recolectar AreaCard creadas en cada área
+            BuildCameraToggleButton(); // Botón de alternar en UI_Canvas (esquina superior derecha)
+            ApplyCardsMode(false);     // Arrancamos en modo Libre
         }
     }
 
-    // NUEVO METODO: Solo registrar las posiciones reales tal como están en el mapa
+    // =========================
+    // Top-Down: Setup + Helpers
+    // =========================
+    void SetupTopDownCamera()
+    {
+        Camera mainCamera = Camera.main;
+        if (mainCamera == null)
+        {
+            Debug.LogError("No hay Main Camera para configurar Top-Down");
+            return;
+        }
+
+        topDownController = mainCamera.GetComponent<TopDownCameraController>();
+        if (topDownController == null)
+            topDownController = mainCamera.gameObject.AddComponent<TopDownCameraController>();
+
+        // Calcular centro/tamaño de la planta en función de tus áreas reales
+        Vector3 plantCenter = CalculatePlantCenter();
+        Vector2 plantSize = CalculatePlantSize();
+
+        var settings = new TopDownCameraController.TopDownSettings
+        {
+            cameraHeight = Mathf.Max(150f, Mathf.Max(plantSize.x, plantSize.y) * 1.1f), // ⬅ 150f mínimo
+            cameraAngle = 22f,
+            plantCenter = plantCenter,
+            viewportWidth = plantSize.x * fitPadding,   // ⬅ usa 2.0f por defecto
+            viewportDepth = plantSize.y * fitPadding
+        };
+
+        topDownController.ApplySettings(settings); // usa el controlador real
+        if (enableDebugMode) Debug.Log($"[TopDown] Centro {plantCenter} | Tamaño {plantSize} | Padding {fitPadding}");
+    }
+
+    void CollectAreaCardsAuto()
+    {
+        areaCards.Clear();
+        foreach (var area in areaObjects)
+        {
+            if (area == null) continue;
+            var card = area.GetComponentInChildren<AreaCard>(true);
+            if (card != null) areaCards.Add(card);
+        }
+        if (enableDebugMode) Debug.Log($"[TopDown] Encontradas {areaCards.Count} AreaCard");
+    }
+
+    Vector3 CalculatePlantCenter()
+    {
+        if (areaObjects.Count == 0) return Vector3.zero;
+        Vector3 sum = Vector3.zero; int n = 0;
+        foreach (var a in areaObjects) { if (a) { sum += a.transform.position; n++; } }
+        return n > 0 ? sum / n : Vector3.zero;
+    }
+
+    Vector2 CalculatePlantSize()
+    {
+        if (areaObjects.Count == 0) return new Vector2(100, 100);
+        float minX = float.MaxValue, maxX = float.MinValue;
+        float minZ = float.MaxValue, maxZ = float.MinValue;
+
+        foreach (var a in areaObjects)
+        {
+            if (a == null) continue;
+            Bounds b = GetObjectBounds(a);
+            minX = Mathf.Min(minX, b.min.x); maxX = Mathf.Max(maxX, b.max.x);
+            minZ = Mathf.Min(minZ, b.min.z); maxZ = Mathf.Max(maxZ, b.max.z);
+        }
+        float w = Mathf.Max(50f, maxX - minX);
+        float d = Mathf.Max(50f, maxZ - minZ);
+        return new Vector2(w, d);
+    }
+
+    Bounds GetObjectBounds(GameObject obj)
+    {
+        var rends = obj.GetComponentsInChildren<Renderer>();
+        if (rends.Length == 0) return new Bounds(obj.transform.position, Vector3.one * 5f);
+        Bounds c = rends[0].bounds;
+        for (int i = 1; i < rends.Length; i++) c.Encapsulate(rends[i].bounds);
+        return c;
+    }
+
+    // ===========================
+    // Botón UI: alternar la cámara
+    // ===========================
+    void BuildCameraToggleButton()
+    {
+        EnsureEventSystem();
+        Canvas canvas = FindOrCreateUICanvas(); // usa el UI_Canvas del Dashboard si existe
+
+        // Contenedor
+        GameObject go = new GameObject("Btn_ToggleCamera", typeof(RectTransform), typeof(Image), typeof(Button), typeof(Shadow));
+        go.transform.SetParent(canvas.transform, false);
+
+        var rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = rt.anchorMax = new Vector2(1f, 1f);
+        rt.pivot = new Vector2(1f, 1f);
+        rt.sizeDelta = new Vector2(130, 36);
+        rt.anchoredPosition = new Vector2(-18, -52); // ⬅ movido debajo del botón cerrar
+
+        var img = go.GetComponent<Image>();
+        img.color = Color.white;                 // ⬅ estilo Apple: fondo blanco puro
+        img.sprite = CreateRoundedSprite(16);    // ⬅ bordes más redondeados
+        img.type = Image.Type.Sliced;
+        img.raycastTarget = true;
+
+        var shadow = go.GetComponent<Shadow>();
+        shadow.effectDistance = new Vector2(0, -2);         // sombra sutil
+        shadow.effectColor = new Color(0, 0, 0, 0.18f);
+
+        cameraToggleButton = go.GetComponent<Button>();
+        var cb = cameraToggleButton.colors;
+        cb.normalColor = img.color;
+        cb.highlightedColor = new Color(0.98f, 0.98f, 1f, 0.98f);
+        cb.pressedColor = new Color(0.90f, 0.92f, 0.95f, 0.95f);
+        cb.fadeDuration = 0.08f;
+        cameraToggleButton.colors = cb;
+
+        // Texto
+        GameObject txtObj = new GameObject("Text", typeof(RectTransform), typeof(Text));
+        txtObj.transform.SetParent(go.transform, false);
+        var rtTxt = txtObj.GetComponent<RectTransform>();
+        rtTxt.anchorMin = rtTxt.anchorMax = new Vector2(0.5f, 0.5f);
+        rtTxt.sizeDelta = new Vector2(120, 30);
+
+        cameraToggleText = txtObj.GetComponent<Text>();
+        cameraToggleText.text = "Vista: Libre";
+        cameraToggleText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        cameraToggleText.fontSize = 14;
+        cameraToggleText.fontStyle = FontStyle.Bold;
+        cameraToggleText.color = new Color(0.18f, 0.18f, 0.22f, 1f);
+        cameraToggleText.alignment = TextAnchor.MiddleCenter;
+
+        cameraToggleButton.onClick.AddListener(ToggleCameraMode);
+    }
+
+    // Sprite redondeado 9-slice simple (para el botón)
+    Sprite CreateRoundedSprite(int cornerRadius = 12)
+    {
+        int width = 64, height = 64;
+        Texture2D texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
+        Color[] pixels = new Color[width * height];
+
+        bool IsInsideRounded(int x, int y, int w, int h, int r)
+        {
+            bool corner = (x < r && y < r) || (x >= w - r && y < r) ||
+                          (x < r && y >= h - r) || (x >= w - r && y >= h - r);
+            if (!corner) return true;
+            Vector2 center = (x < r && y < r) ? new Vector2(r, r) :
+                             (x >= w - r && y < r) ? new Vector2(w - r, r) :
+                             (x < r && y >= h - r) ? new Vector2(r, h - r) :
+                                                     new Vector2(w - r, h - r);
+            return Vector2.Distance(new Vector2(x, y), center) <= r;
+        }
+
+        for (int y = 0; y < height; y++)
+            for (int x = 0; x < width; x++)
+                pixels[y * width + x] = IsInsideRounded(x, y, width, height, cornerRadius) ? Color.white : Color.clear;
+
+        texture.SetPixels(pixels);
+        texture.Apply();
+
+        return Sprite.Create(texture, new Rect(0, 0, width, height),
+            new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect,
+            new Vector4(cornerRadius, cornerRadius, cornerRadius, cornerRadius));
+    }
+
+    Canvas FindOrCreateUICanvas()
+    {
+        // Reutiliza el Canvas del dashboard si existe (UI_Canvas).
+        var existing = GameObject.Find("UI_Canvas");
+        if (existing != null) return existing.GetComponent<Canvas>();
+
+        // Si no, crea uno muy simple
+        var canvasObj = new GameObject("UI_Canvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+        var canvas = canvasObj.GetComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        var scaler = canvasObj.GetComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920, 1080);
+        scaler.matchWidthOrHeight = 0.5f;
+        return canvas;
+    }
+
+    void EnsureEventSystem()
+    {
+        if (FindObjectOfType<EventSystem>() == null)
+        {
+            var es = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+            Debug.Log("EventSystem creado automáticamente para UI.");
+        }
+    }
+
+    // ===========================
+    // Alternar modos de cámara
+    // ===========================
+    public void ToggleCameraMode()
+    {
+        if (topDownController == null)
+        {
+            Debug.LogWarning("No hay TopDownCameraController configurado.");
+            return;
+        }
+
+        isInTopDownMode = !isInTopDownMode;
+
+        if (isInTopDownMode)
+        {
+            // SetTopDownMode/SetFreeMode existen en tu controlador
+            topDownController.SetTopDownMode();   // vista mapa fija (con transición suave en su script)
+            ApplyCardsMode(true);                 // ⬅ notificar inmediatamente a AreaCards
+            if (cameraToggleText) cameraToggleText.text = "Vista: Mapa";
+            if (enableDebugMode) Debug.Log("→ Vista Top-Down");
+        }
+        else
+        {
+            topDownController.SetFreeMode();      // vuelve a libre
+            ApplyCardsMode(false);                // ⬅ notificar inmediatamente a AreaCards
+            if (cameraToggleText) cameraToggleText.text = "Vista: Libre";
+            if (enableDebugMode) Debug.Log("→ Vista Libre");
+        }
+    }
+
+    void ApplyCardsMode(bool topdown)
+    {
+        foreach (var card in areaCards)
+        {
+            if (card == null) continue;
+            card.SetTopDownMode(topdown); // cambia escala y billboard yaw-only en Top-Down
+        }
+    }
+
+    // ===========================
+    // Flujo de selección
+    // ===========================
+    public void OnAreaClicked(GameObject areaObject)
+    {
+        if (dashboard == null) return;
+
+        string areaKey = GetAreaKey(areaObject.name);
+        if (!areaDataDict.ContainsKey(areaKey)) return;
+
+        var data = areaDataDict[areaKey];
+
+        var kpis = new List<KPIData>
+        {
+            new KPIData("Delivery", data.delivery, "%"),
+            new KPIData("Quality", data.quality, "%"),
+            new KPIData("Parts", data.parts, "%"),
+            new KPIData("Process Manufacturing", data.processManufacturing, "%"),
+            new KPIData("Training DNA", data.trainingDNA, "%"),
+            new KPIData("Mantenimiento", data.mtto, "%"),
+            new KPIData("Overall Result", data.overallResult, "%")
+        };
+
+        var predicciones = GeneratePredictions(data);
+        dashboard.UpdateWithAreaData(data.displayName, kpis, predicciones);
+
+        // Focus/zoom según modo
+        Transform target = areaObject.transform;
+
+        if (isInTopDownMode && topDownController != null)
+        {
+            // ⬅ Nuevo: enfoque suave en Top-Down (implementado en TopDownCameraController)
+            topDownController.FocusOnAreaTopDown(target, 0.75f);
+        }
+        else
+        {
+            // MODO LIBRE (tu lógica existente)
+            Vector3 focusPosition = realAreaPositions.ContainsKey(areaKey) ?
+                                    realAreaPositions[areaKey] :
+                                    areaObject.transform.position;
+
+            var cameraController = Camera.main?.GetComponent<FreeCameraController>();
+            if (cameraController != null) cameraController.FocusOnArea(areaObject.transform, 25f);
+
+            if (enableDebugMode) Debug.Log($"✅ Área seleccionada: {data.displayName}  @ {focusPosition}");
+        }
+    }
+
+    public void OnAreaClicked(AreaCard areaCard)
+    {
+        if (areaCard != null && areaCard.gameObject != null) OnAreaClicked(areaCard.gameObject);
+    }
+
+    // ===== Heurísticas simples para enriquecer el detalle =====
+    string GenerateDetailText(string areaDisplayName, KPIData kpi)
+    {
+        // ... (igual a tu implementación previa)
+        string areaKey = null;
+        foreach (var kv in areaDataDict)
+        {
+            if (string.Equals(kv.Value.displayName, areaDisplayName, StringComparison.OrdinalIgnoreCase))
+            {
+                areaKey = kv.Key;
+                break;
+            }
+        }
+        if (string.IsNullOrEmpty(areaKey) || !areaDataDict.ContainsKey(areaKey))
+            return $"Detalle de {kpi.name}\nÁrea: {areaDisplayName}\nActual: {kpi.value:F1}{(string.IsNullOrEmpty(kpi.unit) ? "%" : kpi.unit)}";
+
+        var d = areaDataDict[areaKey];
+        string n = (kpi.name ?? "").ToLowerInvariant();
+
+        if (n.Contains("delivery"))
+            return
+$@"Delivery — {d.displayName}
+Actual: {d.delivery:F1}%
+• Órdenes planificadas: {GetEstOrders(d.delivery)}
+• Incumplimientos: {GetIncidences(d.delivery)}
+• Retraso promedio: {GetDelayMins(d.delivery)} min
+Acción: asegurar JIT, balanceo de línea y seguimiento de transporte.";
+
+        if (n.Contains("quality"))
+            return
+$@"Quality — {d.displayName}
+Actual: {d.quality:F1}%
+• PPM estimado: {GetPpm(d.quality)}
+• Top defectos: {GetTopDefects()}
+• Retrabajos/día: {GetReworks(d.quality)}
+Acción: Gemba + 5-Why sobre el defecto principal; contención si PPM > objetivo.";
+
+        if (n.Contains("parts"))
+            return
+$@"Parts Availability — {d.displayName}
+Disponibilidad: {d.parts:F1}%
+• SKU críticos: {GetCriticalSkus(d.parts)}
+• Backorders: {GetBackorders(d.parts)}
+• Cobertura: {GetCoverageDays(d.parts)} día(s)
+Acción: escalonar compras urgentes y validar alternos.";
+
+        if (n.Contains("process"))
+            return
+$@"Process Manufacturing — {d.displayName}
+Capacidad efectiva: {d.processManufacturing:F1}%
+• OEE estimado: {GetOee(d.processManufacturing)}%
+• Cuellos de botella: {GetBottlenecksCount(d.processManufacturing)}
+• SMED pendientes: {GetSmedPend(d.processManufacturing)}
+Acción: Kaizen corto en cuello principal.";
+
+        if (n.Contains("training"))
+            return
+$@"Training DNA — {d.displayName}
+Cumplimiento: {d.trainingDNA:F1}%
+• Cursos críticos vencidos: {GetExpiredCourses(d.trainingDNA)}
+• Polivalencia: {GetPolyvalence(d.trainingDNA)}%
+• Rotación mes: {GetTurnover()}%
+Acción: reentrenar estándar de trabajo en estaciones clave.";
+
+        if (n.Contains("mantenimiento") || n.Contains("mtto"))
+            return
+$@"Mantenimiento — {d.displayName}
+Cumplimiento PM: {d.mtto:F1}%
+• WO abiertas: {GetOpenWo(d.mtto)}
+• Paros mayores: {GetMajorStops(d.mtto)}
+• Próx. PM: {GetNextPMDate()}
+Acción: cerrar WO >72h y asegurar refacciones para fallas repetitivas.";
+
+        if (n.Contains("overall"))
+            return
+$@"Overall Result — {d.displayName}
+Índice global: {d.overallResult:F1}%
+• Estado: {d.status}
+• Palanca principal: {GetMainLever(d)}
+Acción: enfoque en la palanca para +5 pts en 2 semanas.";
+
+        return $"Detalle de {kpi.name}\nÁrea: {d.displayName}\nActual: {kpi.value:F1}{(string.IsNullOrEmpty(kpi.unit) ? "%" : kpi.unit)}";
+    }
+
+    // ===== Heurísticas / helpers (igual que tenías) =====
+    int GetEstOrders(float delivery) => Mathf.Clamp(Mathf.RoundToInt(50f * (delivery / 100f) + 5), 5, 60);
+    int GetIncidences(float delivery) => delivery < 50 ? 5 : (delivery < 80 ? 2 : 0);
+    int GetDelayMins(float delivery) => delivery < 50 ? 35 : (delivery < 80 ? 12 : 3);
+    int GetPpm(float quality) => Mathf.Clamp(Mathf.RoundToInt((100f - quality) * 120f), 0, 12000);
+    string GetTopDefects() => "Faltante, Cosmético, Torque";
+    int GetReworks(float quality) => Mathf.Clamp(Mathf.RoundToInt((100f - quality) / 5f), 0, 6);
+    int GetCriticalSkus(float parts) => Mathf.Clamp(Mathf.RoundToInt((100f - parts) / 12f), 0, 8);
+    int GetBackorders(float parts) => Mathf.Clamp(Mathf.RoundToInt((100f - parts) / 20f), 0, 5);
+    int GetCoverageDays(float parts) => Mathf.Clamp(Mathf.RoundToInt(parts / 20f), 0, 7);
+    int GetOee(float pm) => Mathf.Clamp(Mathf.RoundToInt(pm * 0.85f), 20, 100);
+    int GetBottlenecksCount(float pm) => pm < 60 ? 2 : (pm < 85 ? 1 : 0);
+    int GetSmedPend(float pm) => pm < 80 ? 3 : 1;
+    int GetExpiredCourses(float t) => t < 70 ? 4 : (t < 90 ? 1 : 0);
+    int GetPolyvalence(float t) => Mathf.Clamp(Mathf.RoundToInt(t * 0.6f), 30, 90);
+    int GetTurnover() => 3;
+    int GetOpenWo(float mtto) => mtto < 60 ? 7 : (mtto < 90 ? 3 : 1);
+    int GetMajorStops(float mtto) => mtto < 60 ? 2 : 0;
+    string GetNextPMDate() => System.DateTime.Now.AddDays(3).ToString("dd/MM");
+    string GetMainLever(AreaData d)
+    {
+        float min = Mathf.Min(d.delivery, d.quality, d.parts, d.processManufacturing, d.trainingDNA, d.mtto);
+        if (Mathf.Approximately(min, d.delivery)) return "Delivery";
+        if (Mathf.Approximately(min, d.quality)) return "Quality";
+        if (Mathf.Approximately(min, d.parts)) return "Parts";
+        if (Mathf.Approximately(min, d.processManufacturing)) return "Process Manufacturing";
+        if (Mathf.Approximately(min, d.trainingDNA)) return "Training DNA";
+        return "Mantenimiento";
+    }
+
+    // ===== Infraestructura existente + guard de UI (igual) =====
+    void Update()
+    {
+        // No permitir clic de selección si el puntero está sobre UI
+        if (Input.GetMouseButtonDown(0) && !IsPointerOverUI())
+            HandleAreaClickSimplified();
+
+        if (Input.GetKeyDown(KeyCode.I) && enableDebugMode) ShowAreaDebugInfo();
+        if (Input.GetKeyDown(KeyCode.P) && enableDebugMode) DebugRealAreaPositions();
+        if (Input.GetKeyDown(KeyCode.U) && enableDebugMode) DebugAreaPositionsDetailed();
+        if (Input.GetKeyDown(KeyCode.H) && enableDebugMode) DebugAreaHierarchy();
+
+        if (Input.GetKeyDown(KeyCode.Escape)) dashboard?.HideInterface();
+    }
+
+    bool IsPointerOverUI()
+    {
+        return EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+    }
+
     void RegisterRealAreaPositions()
     {
         Debug.Log("=== REGISTRANDO POSICIONES REALES (SIN MOVER NADA) ===");
-
         foreach (GameObject areaObj in areaObjects)
         {
             if (areaObj == null) continue;
-
             string areaKey = GetAreaKey(areaObj.name);
-            Vector3 realPosition = areaObj.transform.position;
-
-            // Guardar la posición REAL sin modificar el objeto
-            realAreaPositions[areaKey] = realPosition;
-
-            Debug.Log($"✅ {areaObj.name} (Key: {areaKey}) - Posición REAL preservada: {realPosition}");
-        }
-
-        Debug.Log("=== RESUMEN DE POSICIONES REALES ===");
-        foreach (var kvp in realAreaPositions)
-        {
-            Debug.Log($"  {kvp.Key}: {kvp.Value}");
+            realAreaPositions[areaKey] = areaObj.transform.position;
+            Debug.Log($"✅ {areaObj.name} (Key: {areaKey}) - Posición REAL preservada: {areaObj.transform.position}");
         }
         Debug.Log("====================================");
     }
 
-    void Update()
-    {
-        // Detección de clicks con raycast SIMPLIFICADA
-        if (Input.GetMouseButtonDown(0)) // Click izquierdo
-        {
-            HandleAreaClickSimplified();
-        }
-
-        // Tecla de debug para mostrar info de áreas
-        if (Input.GetKeyDown(KeyCode.I) && enableDebugMode)
-        {
-            ShowAreaDebugInfo();
-        }
-
-        // Debug de posiciones con P
-        if (Input.GetKeyDown(KeyCode.P) && enableDebugMode)
-        {
-            DebugRealAreaPositions();
-        }
-
-        // NUEVO: Debug de posiciones con tecla U
-        if (Input.GetKeyDown(KeyCode.U) && enableDebugMode)
-        {
-            DebugAreaPositionsDetailed();
-        }
-
-        // Debug completo de jerarquía con H
-        if (Input.GetKeyDown(KeyCode.H) && enableDebugMode)
-        {
-            DebugAreaHierarchy();
-        }
-
-        // Tecla ESC para cerrar dashboard
-        if (Input.GetKeyDown(KeyCode.Escape))
-        {
-            if (dashboard != null)
-            {
-                dashboard.HideInterface();
-            }
-        }
-    }
-
-    // MÉTODO NUEVO: Debug detallado de posiciones para resolver conflictos
     void DebugAreaPositionsDetailed()
     {
         Debug.Log("=== 🔍 ANÁLISIS DETALLADO DE POSICIONES DE ÁREAS ===");
-        Debug.Log($"📍 Total de áreas registradas: {areaObjects.Count}");
-        Debug.Log("");
-
         Dictionary<Vector3, List<string>> positionGroups = new Dictionary<Vector3, List<string>>();
-
-        // Agrupar áreas por posición
         foreach (GameObject areaObj in areaObjects)
         {
             if (areaObj == null) continue;
-
             Vector3 pos = areaObj.transform.position;
-            string areaInfo = $"{areaObj.name} (Key: {GetAreaKey(areaObj.name)})";
-
-            // Buscar si ya existe esta posición (con tolerancia)
+            string info = $"{areaObj.name} (Key: {GetAreaKey(areaObj.name)})";
             bool found = false;
             foreach (var kvp in positionGroups)
             {
-                if (Vector3.Distance(kvp.Key, pos) < 0.1f)
-                {
-                    kvp.Value.Add(areaInfo);
-                    found = true;
-                    break;
-                }
+                if (Vector3.Distance(kvp.Key, pos) < 0.1f) { kvp.Value.Add(info); found = true; break; }
             }
-
-            if (!found)
-            {
-                positionGroups[pos] = new List<string> { areaInfo };
-            }
+            if (!found) positionGroups[pos] = new List<string> { info };
         }
-
-        // Mostrar resultados
-        Debug.Log("📊 RESUMEN POR POSICIONES:");
-        Debug.Log("");
-
-        int conflictCount = 0;
+        int conflicts = 0;
         foreach (var kvp in positionGroups)
         {
-            Vector3 position = kvp.Key;
-            List<string> areas = kvp.Value;
-
-            if (areas.Count > 1)
-            {
-                conflictCount++;
-                Debug.Log($"⚠️  CONFLICTO #{conflictCount} - Posición: {position}");
-                Debug.Log($"   🏭 Áreas en conflicto ({areas.Count}):");
-                for (int i = 0; i < areas.Count; i++)
-                {
-                    Debug.Log($"      {i + 1}. {areas[i]}");
-                }
-                Debug.Log("");
-            }
-            else
-            {
-                Debug.Log($"✅ Posición única: {position}");
-                Debug.Log($"   🏭 Área: {areas[0]}");
-                Debug.Log("");
-            }
+            if (kvp.Value.Count > 1) { conflicts++; Debug.Log($"⚠️ Conflicto en {kvp.Key} -> {kvp.Value.Count} áreas"); }
         }
-
-        if (conflictCount == 0)
-        {
-            Debug.Log("🎉 ¡PERFECTO! No se encontraron conflictos de posición");
-        }
-        else
-        {
-            Debug.Log($"⚠️  TOTAL DE CONFLICTOS ENCONTRADOS: {conflictCount}");
-            Debug.Log("");
-            Debug.Log("💡 RECOMENDACIONES:");
-            Debug.Log("1. Ve a la escena de Unity");
-            Debug.Log("2. Selecciona cada área en conflicto");
-            Debug.Log("3. Verifica su Transform Position en el Inspector");
-            Debug.Log("4. Mueve manualmente las áreas a sus posiciones correctas");
-            Debug.Log("5. VBL1 parece estar en la posición correcta - úsala como referencia");
-        }
-
-        Debug.Log("========================================");
+        Debug.Log(conflicts == 0 ? "🎉 Sin conflictos" : $"⚠️ Conflictos totales: {conflicts}");
     }
 
-    // MÉTODO NUEVO: Debug completo de jerarquía de objetos
     void DebugAreaHierarchy()
     {
-        Debug.Log("=== 🔍 ANÁLISIS COMPLETO DE JERARQUÍA DE ÁREAS ===");
-        Debug.Log($"📍 Analizando {areaObjects.Count} áreas registradas");
-        Debug.Log("");
-
+        Debug.Log("=== 🔍 HIERARQUÍA DE ÁREAS ===");
         foreach (GameObject areaObj in areaObjects)
         {
             if (areaObj == null) continue;
-
-            string areaKey = GetAreaKey(areaObj.name);
-            Debug.Log($"🏭 ===== {areaObj.name} (Key: {areaKey}) =====");
-
-            // Transform principal
-            Debug.Log($"   📍 Transform.position: {areaObj.transform.position}");
-            Debug.Log($"   📍 Transform.localPosition: {areaObj.transform.localPosition}");
-            Debug.Log($"   🔄 Transform.rotation: {areaObj.transform.rotation.eulerAngles}");
-            Debug.Log($"   📏 Transform.scale: {areaObj.transform.localScale}");
-
-            // Información del parent
-            if (areaObj.transform.parent != null)
-            {
-                Debug.Log($"   👨‍👩‍👧‍👦 Parent: {areaObj.transform.parent.name}");
-                Debug.Log($"   👨‍👩‍👧‍👦 Parent Position: {areaObj.transform.parent.position}");
-            }
-            else
-            {
-                Debug.Log($"   👨‍👩‍👧‍👦 Parent: NINGUNO (Root object)");
-            }
-
-            // Información de children
-            int childCount = areaObj.transform.childCount;
-            Debug.Log($"   👶 Children count: {childCount}");
-
-            if (childCount > 0)
-            {
-                Debug.Log($"   👶 Children:");
-                for (int i = 0; i < childCount; i++)
-                {
-                    Transform child = areaObj.transform.GetChild(i);
-                    Debug.Log($"      {i + 1}. {child.name} - Pos: {child.position}");
-                }
-            }
-
-            // Información de componentes relevantes
+            string k = GetAreaKey(areaObj.name);
+            Debug.Log($"🏭 {areaObj.name} (Key: {k})  pos:{areaObj.transform.position}");
             Collider col = areaObj.GetComponent<Collider>();
-            if (col != null)
-            {
-                Debug.Log($"   📦 Collider: {col.GetType().Name}");
-                if (col is BoxCollider box)
-                {
-                    Debug.Log($"       Center: {box.center}, Size: {box.size}");
-                }
-            }
-
-            Renderer rend = areaObj.GetComponent<Renderer>();
-            if (rend != null)
-            {
-                Debug.Log($"   🎨 Renderer bounds: {rend.bounds.center}");
-            }
-            else
-            {
-                Debug.Log($"   🎨 No renderer directo - buscando en children...");
-                Renderer[] childRenderers = areaObj.GetComponentsInChildren<Renderer>();
-                if (childRenderers.Length > 0)
-                {
-                    Debug.Log($"   🎨 Found {childRenderers.Length} child renderers:");
-                    for (int i = 0; i < Mathf.Min(3, childRenderers.Length); i++)
-                    {
-                        Debug.Log($"       {i + 1}. {childRenderers[i].name}: {childRenderers[i].bounds.center}");
-                    }
-                }
-            }
-
-            // Posición registrada vs actual
-            Vector3 registeredPos = realAreaPositions.ContainsKey(areaKey) ?
-                                   realAreaPositions[areaKey] : Vector3.zero;
-            Debug.Log($"   ⚖️  Posición registrada: {registeredPos}");
-            Debug.Log($"   ⚖️  ¿Coincide con actual? {Vector3.Distance(areaObj.transform.position, registeredPos) < 0.1f}");
-
-            Debug.Log("");
+            if (col != null) Debug.Log($"   📦 Collider: {col.GetType().Name}");
         }
-
-        Debug.Log("========================================");
     }
 
-    // METODO SIMPLIFICADO: Click directo en el área sin algoritmos complejos
     void HandleAreaClickSimplified()
     {
         Camera cam = Camera.main;
@@ -319,78 +578,45 @@ public class AreaManager : MonoBehaviour
 
         Ray ray = cam.ScreenPointToRay(Input.mousePosition);
         RaycastHit[] hits = Physics.RaycastAll(ray, 100f);
+        if (hits.Length == 0) return;
 
-        if (hits.Length == 0)
+        Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+        foreach (var hit in hits)
         {
-            Debug.Log("Click detectado pero no golpeó ningún collider");
-            return;
-        }
-
-        // Ordenar hits por distancia (más cercano primero)
-        System.Array.Sort(hits, (hit1, hit2) => hit1.distance.CompareTo(hit2.distance));
-
-        Debug.Log($"🎯 Click detectado - {hits.Length} objetos golpeados:");
-
-        // Buscar la primera área válida en los hits
-        foreach (RaycastHit hit in hits)
-        {
-            GameObject hitObject = hit.collider.gameObject;
-            Debug.Log($"  - Hit: {hitObject.name} a distancia {hit.distance}");
-
-            // Buscar directamente en nuestras áreas registradas
+            GameObject go = hit.collider.gameObject;
             foreach (GameObject areaObj in areaObjects)
             {
-                if (areaObj == hitObject || IsChildOfArea(hitObject, areaObj))
+                if (areaObj == go || IsChildOfArea(go, areaObj))
                 {
-                    Debug.Log($"🎯 ÁREA IDENTIFICADA: {areaObj.name}");
                     OnAreaClicked(areaObj);
-                    return; // Salir inmediatamente después del primer match
+                    return;
                 }
             }
         }
-
-        Debug.LogWarning("No se encontró ningún área válida en el click");
     }
 
-    // Debug simplificado para posiciones reales
     void DebugRealAreaPositions()
     {
-        Debug.Log("=== DEBUG: POSICIONES REALES DE AREAS ===");
-
+        Debug.Log("=== POSICIONES REALES ===");
         foreach (GameObject areaObj in areaObjects)
         {
             if (areaObj == null) continue;
-
-            string areaKey = GetAreaKey(areaObj.name);
-            Vector3 currentPos = areaObj.transform.position;
-            Vector3 registeredPos = realAreaPositions.ContainsKey(areaKey) ? realAreaPositions[areaKey] : Vector3.zero;
-
-            Debug.Log($"🏭 {areaObj.name} (Key: {areaKey})");
-            Debug.Log($"   Posición actual: {currentPos}");
-            Debug.Log($"   Posición registrada: {registeredPos}");
-            Debug.Log($"   ¿Coinciden? {Vector3.Distance(currentPos, registeredPos) < 0.1f}");
+            string key = GetAreaKey(areaObj.name);
+            Vector3 cur = areaObj.transform.position;
+            Vector3 reg = realAreaPositions.ContainsKey(key) ? realAreaPositions[key] : Vector3.zero;
+            Debug.Log($"🏭 {areaObj.name} -> actual:{cur}  registrada:{reg}");
         }
-        Debug.Log("========================================");
     }
 
     void FindAreasAutomatically()
     {
         areaObjects.Clear();
-
-        string[] exactAreaNames = {
-            "Area_ATHONDA", "Area_VCTL4", "Area_BUZZERL2", "Area_VBL1"
-        };
-
-        foreach (string exactName in exactAreaNames)
+        string[] names = { "Area_ATHONDA", "Area_VCTL4", "Area_BUZZERL2", "Area_VBL1" };
+        foreach (string n in names)
         {
-            GameObject found = GameObject.Find(exactName);
-            if (found != null && !areaObjects.Contains(found))
-            {
-                areaObjects.Add(found);
-                Debug.Log($"✓ Área encontrada: {found.name} - Posición: {found.transform.position}");
-            }
+            var found = GameObject.Find(n);
+            if (found != null) { areaObjects.Add(found); Debug.Log($"✓ Área encontrada: {found.name}"); }
         }
-
         Debug.Log($"Total de áreas encontradas: {areaObjects.Count}");
     }
 
@@ -464,22 +690,18 @@ public class AreaManager : MonoBehaviour
             if (areaObj == null) continue;
 
             AreaCard card = areaObj.GetComponent<AreaCard>();
-            if (card == null)
-            {
-                card = areaObj.AddComponent<AreaCard>();
-            }
+            if (card == null) card = areaObj.AddComponent<AreaCard>();
 
             string areaKey = GetAreaKey(areaObj.name);
             if (areaDataDict.ContainsKey(areaKey))
             {
-                AreaData data = areaDataDict[areaKey];
+                var data = areaDataDict[areaKey];
                 card.areaName = data.displayName;
-                Debug.Log($"✓ Tarjeta configurada para {areaObj.name} -> {data.displayName}");
             }
             else
             {
                 card.areaName = areaObj.name;
-                Debug.LogWarning($"❌ No se encontraron datos para el área: {areaObj.name}");
+                Debug.LogWarning($"No se encontraron datos para el área: {areaObj.name}");
             }
 
             SetupAreaCollider(areaObj);
@@ -488,177 +710,76 @@ public class AreaManager : MonoBehaviour
 
     bool IsChildOfArea(GameObject clickedObj, GameObject areaObj)
     {
-        Transform current = clickedObj.transform;
-        while (current != null)
+        Transform t = clickedObj.transform;
+        while (t != null)
         {
-            if (current.gameObject == areaObj)
-                return true;
-            current = current.parent;
+            if (t.gameObject == areaObj) return true;
+            t = t.parent;
         }
         return false;
     }
 
     string GetAreaKey(string objectName)
     {
-        string upperName = objectName.ToUpper();
-
-        if (upperName == "AREA_ATHONDA" || upperName.Contains("ATHONDA") || upperName.Contains("AT HONDA"))
-        {
-            return "ATHONDA";
-        }
-        else if (upperName == "AREA_VCTL4" || upperName.Contains("VCTL4") || upperName.Contains("VCT L4"))
-        {
-            return "VCTL4";
-        }
-        else if (upperName == "AREA_BUZZERL2" || upperName.Contains("BUZZERL2") || upperName.Contains("BUZZER L2"))
-        {
-            return "BUZZERL2";
-        }
-        else if (upperName == "AREA_VBL1" || upperName.Contains("VBL1") || upperName.Contains("VB L1"))
-        {
-            return "VBL1";
-        }
-
+        string upper = objectName.ToUpper();
+        if (upper == "AREA_ATHONDA" || upper.Contains("ATHONDA") || upper.Contains("AT HONDA")) return "ATHONDA";
+        if (upper == "AREA_VCTL4" || upper.Contains("VCTL4") || upper.Contains("VCT L4")) return "VCTL4";
+        if (upper == "AREA_BUZZERL2" || upper.Contains("BUZZERL2") || upper.Contains("BUZZER L2")) return "BUZZERL2";
+        if (upper == "AREA_VBL1" || upper.Contains("VBL1") || upper.Contains("VB L1")) return "VBL1";
         return objectName.ToUpper().Replace("AREA_", "");
     }
 
-    public void OnAreaClicked(GameObject areaObject)
+    List<string> GeneratePredictions(AreaData d)
     {
-        if (dashboard == null) return;
-
-        string areaKey = GetAreaKey(areaObject.name);
-
-        if (areaDataDict.ContainsKey(areaKey))
-        {
-            AreaData data = areaDataDict[areaKey];
-
-            List<KPIData> kpis = new List<KPIData>
-            {
-                new KPIData("Delivery", data.delivery, "%"),
-                new KPIData("Quality", data.quality, "%"),
-                new KPIData("Parts", data.parts, "%"),
-                new KPIData("Process Manufacturing", data.processManufacturing, "%"),
-                new KPIData("Training DNA", data.trainingDNA, "%"),
-                new KPIData("Mantenimiento", data.mtto, "%"),
-                new KPIData("Overall Result", data.overallResult, "%")
-            };
-
-            List<string> predicciones = GeneratePredictions(data);
-
-            dashboard.UpdateWithAreaData(data.displayName, kpis, predicciones);
-
-            // SOLUCION: Usar la posición REAL del objeto, no una inventada
-            Vector3 focusPosition = realAreaPositions.ContainsKey(areaKey) ?
-                                  realAreaPositions[areaKey] :
-                                  areaObject.transform.position;
-
-            Debug.Log($"🎯 ÁREA CLICKEADA: {areaObject.name} (Key: {areaKey})");
-            Debug.Log($"🎯 POSICIÓN REAL PARA FOCUS: {focusPosition}");
-
-            FreeCameraController cameraController = Camera.main?.GetComponent<FreeCameraController>();
-            if (cameraController != null)
-            {
-                cameraController.FocusOnArea(areaObject.transform, 25f);
-            }
-
-            Debug.Log($"✅ Área seleccionada: {data.displayName}");
-        }
-    }
-
-    public void OnAreaClicked(AreaCard areaCard)
-    {
-        if (areaCard != null && areaCard.gameObject != null)
-        {
-            OnAreaClicked(areaCard.gameObject);
-        }
-    }
-
-    List<string> GeneratePredictions(AreaData data)
-    {
-        List<string> predictions = new List<string>();
-
-        if (data.delivery < 50)
-            predictions.Add("🚨 CRÍTICO: Problemas severos de entrega detectados");
-        else if (data.delivery < 80)
-            predictions.Add("⚠️ Delivery bajo riesgo - Optimización recomendada");
-
-        if (data.quality < 70)
-            predictions.Add("🔧 Control de calidad requiere intervención");
-
-        if (data.trainingDNA < 70)
-            predictions.Add("📚 Personal requiere capacitación urgente");
-
-        if (data.overallResult < 50)
-        {
-            predictions.Add("🚨 ZONA ROJA: Intervención ejecutiva inmediata");
-        }
-        else if (data.overallResult >= 90)
-        {
-            predictions.Add("🏆 ZONA OPTIMUS: Benchmark para otras áreas");
-        }
-
-        return predictions;
+        List<string> p = new List<string>();
+        if (d.delivery < 50) p.Add("🚨 CRÍTICO: Problemas severos de entrega detectados");
+        else if (d.delivery < 80) p.Add("⚠️ Delivery bajo riesgo - Optimización recomendada");
+        if (d.quality < 70) p.Add("🔧 Control de calidad requiere intervención");
+        if (d.trainingDNA < 70) p.Add("📚 Personal requiere capacitación urgente");
+        if (d.overallResult < 50) p.Add("🚨 ZONA ROJA: Intervención ejecutiva inmediata");
+        else if (d.overallResult >= 90) p.Add("🏆 ZONA OPTIMUS: Benchmark para otras áreas");
+        return p;
     }
 
     void SetupAreaCollider(GameObject areaObj)
     {
-        Collider existingCollider = areaObj.GetComponent<Collider>();
+        if (areaObj.GetComponent<Collider>() != null) return;
 
-        if (existingCollider == null)
+        BoxCollider box = areaObj.AddComponent<BoxCollider>();
+        Renderer[] renderers = areaObj.GetComponentsInChildren<Renderer>();
+        if (renderers.Length > 0)
         {
-            BoxCollider boxCollider = areaObj.AddComponent<BoxCollider>();
-
-            Renderer[] renderers = areaObj.GetComponentsInChildren<Renderer>();
-            if (renderers.Length > 0)
-            {
-                Bounds bounds = renderers[0].bounds;
-                foreach (Renderer renderer in renderers)
-                {
-                    bounds.Encapsulate(renderer.bounds);
-                }
-
-                boxCollider.center = areaObj.transform.InverseTransformPoint(bounds.center);
-                boxCollider.size = bounds.size;
-            }
-            else
-            {
-                boxCollider.size = Vector3.one * 10f;
-                boxCollider.center = Vector3.up * 2.5f;
-            }
-
-            Debug.Log($"✓ BoxCollider agregado a: {areaObj.name}");
+            Bounds b = renderers[0].bounds;
+            foreach (Renderer r in renderers) b.Encapsulate(r.bounds);
+            box.center = areaObj.transform.InverseTransformPoint(b.center);
+            box.size = b.size;
         }
+        else
+        {
+            box.size = Vector3.one * 10f;
+            box.center = Vector3.up * 2.5f;
+        }
+        Debug.Log($"✓ BoxCollider agregado a: {areaObj.name}");
     }
 
     void ShowAreaDebugInfo()
     {
-        Debug.Log("=== INFORMACIÓN DE DEBUG DE ÁREAS ===");
+        Debug.Log("=== INFO DE ÁREAS ===");
         foreach (GameObject areaObj in areaObjects)
         {
-            if (areaObj != null)
-            {
-                string areaKey = GetAreaKey(areaObj.name);
-                Debug.Log($"Área: {areaObj.name} (Key: {areaKey}) - Posición: {areaObj.transform.position}");
-            }
+            if (areaObj == null) continue;
+            string key = GetAreaKey(areaObj.name);
+            Debug.Log($"Área: {areaObj.name} (Key: {key}) - Posición: {areaObj.transform.position}");
         }
-        Debug.Log("=====================================");
     }
 
     public void CloseDashboard()
     {
-        if (dashboard != null)
-        {
-            dashboard.HideInterface();
-        }
+        dashboard?.HideInterface();
     }
 
-    public AreaData GetAreaData(string areaKey)
-    {
-        return areaDataDict.ContainsKey(areaKey) ? areaDataDict[areaKey] : null;
-    }
+    public AreaData GetAreaData(string areaKey) =>
+        areaDataDict.ContainsKey(areaKey) ? areaDataDict[areaKey] : null;
 
-    public List<GameObject> GetAreaObjects()
-    {
-        return areaObjects;
-    }
+    public List<GameObject> GetAreaObjects() => areaObjects;
 }
