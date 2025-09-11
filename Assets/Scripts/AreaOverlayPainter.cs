@@ -15,11 +15,23 @@ public class AreaOverlayPainter : MonoBehaviour
 
     [Header("Text Settings")]
     [SerializeField] private Font textFont;
-    [SerializeField] private int nameFontSize = 64;           // ← AUMENTADO
-    [SerializeField] private int percentFontSize = 120;       // ← AUMENTADO
-    [SerializeField] private Color textColor = Color.white;
-    [SerializeField] private float canvasScale = 0.005f;      // ← REDUCIDO para texto más grande
+    [SerializeField] private int nameFontSize = 84;
+    [SerializeField] private int percentFontSize = 160;
+    [SerializeField] private Color textColor = Color.black; // ⚫ CAMBIADO A NEGRO
+    [SerializeField] private float canvasScale = 0.003f;
     [SerializeField] private bool debugMode = true;
+
+    [Header("Text Auto-Size")]
+    [SerializeField] private bool autoSizeTexts = true;
+    [SerializeField, Range(0.20f, 0.80f)] private float nameBand = 0.55f;
+    [SerializeField] private int minNameFont = 250;
+    [SerializeField] private int minPercentFont = 360;
+    [SerializeField] private int maxFont = 1100;
+    [SerializeField] private float globalTextBoost = 1.35f;
+
+    [Header("Text Elevation")]
+    [SerializeField] private float textLiftStatic = 3f;
+    [SerializeField] private float textLiftDynamic = 5f;
 
     [Header("References")]
     [SerializeField] private AreaManager areaManager;
@@ -31,8 +43,8 @@ public class AreaOverlayPainter : MonoBehaviour
     [System.Serializable]
     public class AreaOverlayData
     {
-        public List<GameObject> overlayMeshes = new List<GameObject>(); // exact mesh clones
-        public GameObject overlayQuad;                                   // fallback quad
+        public List<GameObject> overlayMeshes = new List<GameObject>();
+        public GameObject overlayQuad;
         public Canvas textCanvas;
         public Text nameText;
         public Text percentageText;
@@ -42,14 +54,13 @@ public class AreaOverlayPainter : MonoBehaviour
 
     void Start()
     {
-        if (areaManager == null) areaManager = FindFirstObjectByType<AreaManager>();
-        if (industrialDashboard == null) industrialDashboard = FindFirstObjectByType<IndustrialDashboard>();
+        if (areaManager == null) areaManager = FindObjectOfType<AreaManager>();
+        if (industrialDashboard == null) industrialDashboard = FindObjectOfType<IndustrialDashboard>();
 
         InitializeOverlays();
-        SetOverlaysActive(false); // empezamos ocultos (modo libre)
+        SetOverlaysActive(false);
     }
 
-    // Llamado desde el AreaManager / TopDownCamera al entrar/salir de Top-Down
     public void SetTopDownMode(bool isTopDown)
     {
         if (debugMode)
@@ -60,15 +71,11 @@ public class AreaOverlayPainter : MonoBehaviour
 
         if (isTopDownMode)
         {
-            // FORZAR actualización inmediata y reconfigurar textos
             RefreshOverlaysForStaticView();
-
-            // También forzar después de un frame
             StartCoroutine(RefreshCanvasesDelayed());
         }
     }
 
-    // NUEVO: Configuración específica para vista estática
     private void RefreshOverlaysForStaticView()
     {
         foreach (var kv in areaOverlays)
@@ -78,14 +85,10 @@ public class AreaOverlayPainter : MonoBehaviour
 
             if (od.textCanvas != null)
             {
-                // Asegurar que el canvas esté activo y visible
                 od.textCanvas.gameObject.SetActive(true);
                 od.textCanvas.enabled = true;
-
-                // Configurar para vista estática (desde arriba)
                 ConfigureCanvasForTopDown(od, area);
             }
-
             UpdateOverlayContent(od, area);
         }
     }
@@ -94,57 +97,59 @@ public class AreaOverlayPainter : MonoBehaviour
     {
         if (od.textCanvas == null) return;
 
-        // Posición y rotación optimizada para vista desde arriba
+        var topDownController = Camera.main != null ? Camera.main.GetComponent<TopDownCameraController>() : null;
+        bool isStaticView = topDownController != null && topDownController.IsUsingFixedStaticView();
+
         Bounds b = CalculateAreaBounds(area);
 
-        // Posicionar el canvas más arriba y sin rotación
-        od.textCanvas.transform.position = new Vector3(b.center.x, b.max.y + 5f, b.center.z);
-        od.textCanvas.transform.rotation = Quaternion.identity; // Sin rotación
-        od.textCanvas.transform.localScale = Vector3.one * canvasScale;
+        if (isStaticView)
+        {
+            od.textCanvas.transform.position = new Vector3(b.center.x, b.max.y + textLiftStatic, b.center.z);
+            od.textCanvas.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+            od.textCanvas.transform.localScale = Vector3.one * canvasScale;
+        }
+        else
+        {
+            od.textCanvas.transform.position = new Vector3(b.center.x, b.max.y + textLiftDynamic, b.center.z);
+            od.textCanvas.transform.rotation = Quaternion.identity;
+            od.textCanvas.transform.localScale = Vector3.one * canvasScale;
+        }
 
-        // Asegurar configuración correcta del canvas
         od.textCanvas.renderMode = RenderMode.WorldSpace;
-        od.textCanvas.sortingOrder = 200; // Más alto que antes
+        od.textCanvas.sortingOrder = 300;
 
-        // Canvas más grande para mejor visibilidad
         RectTransform canvasRT = od.textCanvas.GetComponent<RectTransform>();
-        float canvasWidth = Mathf.Max(b.size.x / canvasScale, 2000f);  // ← MÁS GRANDE
-        float canvasHeight = Mathf.Max(b.size.z / canvasScale, 1600f); // ← MÁS GRANDE
+        float canvasWidth = Mathf.Max(b.size.x / canvasScale, 3000f);
+        float canvasHeight = Mathf.Max(b.size.z / canvasScale, 2000f);
         canvasRT.sizeDelta = new Vector2(canvasWidth, canvasHeight);
+
+        AutoSizeFonts(od);
 
         if (debugMode)
         {
-            Debug.Log($"[TopDown] Canvas reconfigurado para {area.name}:");
-            Debug.Log($"  - Posición: {od.textCanvas.transform.position}");
-            Debug.Log($"  - Escala: {od.textCanvas.transform.localScale}");
-            Debug.Log($"  - Size: {canvasRT.sizeDelta}");
+            Debug.Log($"[TopDown] Canvas reconfigurado para {area.name}: Pos: {od.textCanvas.transform.position}, Rot: {od.textCanvas.transform.rotation.eulerAngles}, Scale: {od.textCanvas.transform.localScale}, Size: {canvasRT.sizeDelta}, Static: {isStaticView}");
         }
     }
 
     private System.Collections.IEnumerator RefreshCanvasesDelayed()
     {
-        yield return null; // Esperar un frame
-        yield return null; // Esperar otro frame más
+        yield return null;
+        yield return null;
 
         foreach (var od in areaOverlays.Values)
         {
             if (od.textCanvas != null)
             {
-                // Forzar reactivación
                 od.textCanvas.enabled = false;
                 yield return null;
                 od.textCanvas.enabled = true;
-
-                // Forzar rebuild
                 Canvas.ForceUpdateCanvases();
-
-                if (debugMode)
-                    Debug.Log($"[Delayed] Canvas reactivado: {od.textCanvas.name}");
+                AutoSizeFonts(od);
+                if (debugMode) Debug.Log($"[Delayed] Canvas reactivado: {od.textCanvas.name}");
             }
         }
     }
 
-    // ===================== Construcción =====================
     void InitializeOverlays()
     {
         var areas = GetAreasFromManager();
@@ -157,7 +162,6 @@ public class AreaOverlayPainter : MonoBehaviour
 
     List<GameObject> GetAreasFromManager()
     {
-        // Usa el manager como fuente de verdad
         return areaManager != null ? (areaManager.GetAreaObjects() ?? new List<GameObject>()) : new List<GameObject>();
     }
 
@@ -169,32 +173,27 @@ public class AreaOverlayPainter : MonoBehaviour
         if (useExactMeshOverlay)
             BuildExactMeshOverlays(area, od);
         else
-            BuildQuadOverlay(area, od); // fallback
+            BuildQuadOverlay(area, od);
 
         BuildTextCanvas(area, od);
         SetupClickOnMain(od, area);
 
-        // primer fill de color/texto
         UpdateOverlayContent(od, area);
-
         areaOverlays[area] = od;
     }
 
-    // ====== Opción 1: Forma exacta (clonar meshes hijos) ======
     void BuildExactMeshOverlays(GameObject area, AreaOverlayData od)
     {
         var meshFilters = area.GetComponentsInChildren<MeshFilter>(true);
         foreach (var mf in meshFilters)
         {
             if (mf.sharedMesh == null) continue;
-
             var srcRenderer = mf.GetComponent<MeshRenderer>();
             if (srcRenderer == null) continue;
 
-            // Crea un hijo pegado al mismo transform local
             var ov = new GameObject("OverlayMesh_" + mf.name);
             ov.transform.SetParent(mf.transform, false);
-            ov.transform.localPosition += Vector3.up * overlayHeight; // lo elevamos un pelín
+            ov.transform.localPosition += Vector3.up * overlayHeight;
             ov.transform.localRotation = Quaternion.identity;
             ov.transform.localScale = Vector3.one;
 
@@ -206,7 +205,6 @@ public class AreaOverlayPainter : MonoBehaviour
             if (!mat.HasProperty("_Color")) mat.color = new Color(1, 1, 1, 0.3f);
             newMR.sharedMaterial = mat;
 
-            // sin sombras ni light probes
             newMR.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             newMR.receiveShadows = false;
             newMR.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
@@ -217,7 +215,6 @@ public class AreaOverlayPainter : MonoBehaviour
         }
     }
 
-    // ====== Opción 2: Quad por bounds (rectangular) ======
     void BuildQuadOverlay(GameObject area, AreaOverlayData od)
     {
         Bounds b = CalculateAreaBounds(area);
@@ -227,10 +224,8 @@ public class AreaOverlayPainter : MonoBehaviour
         quad.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
         quad.transform.position = new Vector3(b.center.x, b.min.y + overlayHeight, b.center.z);
         quad.transform.localScale = new Vector3(b.size.x + padding, b.size.z + padding, 1f);
-
         var rend = quad.GetComponent<Renderer>();
         rend.sharedMaterial = overlayMaterial != null ? new Material(overlayMaterial) : new Material(Shader.Find("Unlit/Color"));
-
         od.overlayQuad = quad;
     }
 
@@ -248,103 +243,91 @@ public class AreaOverlayPainter : MonoBehaviour
         return b;
     }
 
-    // ====== Textos - VERSION MEJORADA PARA VISTA ESTÁTICA ======
     void BuildTextCanvas(GameObject area, AreaOverlayData od)
     {
         Bounds b = CalculateAreaBounds(area);
-
-        // Crear el canvas como WorldSpace
         GameObject canvasObj = new GameObject("OverlayCanvas");
         canvasObj.transform.SetParent(area.transform, false);
 
-        // Canvas horizontal y más arriba
-        float canvasY = b.max.y + overlayHeight * 5f; // ← MÁS ALTURA
+        float canvasY = b.max.y + textLiftStatic;
         canvasObj.transform.position = new Vector3(b.center.x, canvasY, b.center.z);
-        canvasObj.transform.rotation = Quaternion.identity; // Sin rotación = horizontal
+        canvasObj.transform.rotation = Quaternion.identity;
         canvasObj.transform.localScale = Vector3.one * canvasScale;
 
-        // Configurar Canvas
         Canvas canvas = canvasObj.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.WorldSpace;
-        canvas.sortingOrder = 200; // ← MÁS ALTO
+        canvas.sortingOrder = 300;
 
-        // Configurar CanvasScaler
         CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
         scaler.scaleFactor = 1f;
-
-        // Configurar GraphicRaycaster
         canvasObj.AddComponent<GraphicRaycaster>();
 
-        // Canvas MÁS GRANDE para mejor visibilidad
         RectTransform canvasRT = canvasObj.GetComponent<RectTransform>();
-        float canvasWidth = Mathf.Max(b.size.x / canvasScale, 2000f);   // ← AUMENTADO
-        float canvasHeight = Mathf.Max(b.size.z / canvasScale, 1600f);  // ← AUMENTADO
+        float canvasWidth = Mathf.Max(b.size.x / canvasScale, 3000f);
+        float canvasHeight = Mathf.Max(b.size.z / canvasScale, 2000f);
         canvasRT.sizeDelta = new Vector2(canvasWidth, canvasHeight);
 
-        // ===== TEXTO DEL NOMBRE - MEJORADO =====
+        // TEXTO DEL NOMBRE
         GameObject nameObj = new GameObject("NameText");
         nameObj.transform.SetParent(canvasObj.transform, false);
-
         Text nameText = nameObj.AddComponent<Text>();
         nameText.font = textFont != null ? textFont : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        nameText.fontSize = Mathf.Max(nameFontSize, 64);      // ← AUMENTADO
+        nameText.fontSize = Mathf.Max(nameFontSize, 84);
         nameText.fontStyle = FontStyle.Bold;
         nameText.alignment = TextAnchor.MiddleCenter;
-        nameText.color = textColor;
+        nameText.color = textColor; // Usa el color negro definido arriba
         nameText.raycastTarget = false;
 
-        // Configuración mejorada del RectTransform
-        RectTransform nameRT = nameText.GetComponent<RectTransform>();
-        nameRT.anchorMin = new Vector2(0f, 0.6f);
-        nameRT.anchorMax = new Vector2(1f, 1f);
-        nameRT.anchoredPosition = Vector2.zero;
-        nameRT.sizeDelta = Vector2.zero;
-        nameRT.offsetMin = new Vector2(50, nameRT.offsetMin.y); // márgenes
-        nameRT.offsetMax = new Vector2(-50, nameRT.offsetMax.y);
+        // ✨ AÑADIDO: Contorno para el nombre
+        Outline nameOutline = nameObj.AddComponent<Outline>();
+        nameOutline.effectColor = new Color(1f, 1f, 1f, 0.8f); // Contorno blanco
+        nameOutline.effectDistance = new Vector2(12, -12);      // Grosor del contorno
 
-        // ===== TEXTO DEL PORCENTAJE - MEJORADO =====
+        RectTransform nameRT = nameText.GetComponent<RectTransform>();
+        nameRT.anchorMin = new Vector2(0f, 1f - nameBand);
+        nameRT.anchorMax = new Vector2(1f, 1f);
+        nameRT.offsetMin = new Vector2(100, 40);
+        nameRT.offsetMax = new Vector2(-100, -40);
+
+        // TEXTO DEL PORCENTAJE
         GameObject pctObj = new GameObject("PercentageText");
         pctObj.transform.SetParent(canvasObj.transform, false);
-
         Text pctText = pctObj.AddComponent<Text>();
         pctText.font = nameText.font;
-        pctText.fontSize = Mathf.Max(percentFontSize, 120);   // ← AUMENTADO
+        pctText.fontSize = Mathf.Max(percentFontSize, 300);
         pctText.fontStyle = FontStyle.Bold;
         pctText.alignment = TextAnchor.MiddleCenter;
-        pctText.color = textColor;
+        pctText.color = textColor; // Usa el color negro
         pctText.raycastTarget = false;
+
+        // ✨ AÑADIDO: Contorno para el porcentaje
+        Outline pctOutline = pctObj.AddComponent<Outline>();
+        pctOutline.effectColor = nameOutline.effectColor;   // Mismo color
+        pctOutline.effectDistance = new Vector2(20, -20);    // Más grueso para el número
 
         RectTransform pctRT = pctText.GetComponent<RectTransform>();
         pctRT.anchorMin = new Vector2(0f, 0f);
-        pctRT.anchorMax = new Vector2(1f, 0.6f);
-        pctRT.anchoredPosition = Vector2.zero;
-        pctRT.sizeDelta = Vector2.zero;
-        pctRT.offsetMin = new Vector2(50, pctRT.offsetMin.y); // márgenes
-        pctRT.offsetMax = new Vector2(-50, pctRT.offsetMax.y);
+        pctRT.anchorMax = new Vector2(1f, 1f - nameBand);
+        pctRT.offsetMin = new Vector2(100, 40);
+        pctRT.offsetMax = new Vector2(-100, -40);
 
-        // Guardar referencias
         od.textCanvas = canvas;
         od.nameText = nameText;
         od.percentageText = pctText;
-
-        if (debugMode)
-        {
-            Debug.Log($"[AreaOverlay] Canvas creado para {area.name}:");
-            Debug.Log($"  - Posición: {canvasObj.transform.position}");
-            Debug.Log($"  - Escala: {canvasObj.transform.localScale}");
-            Debug.Log($"  - Canvas Size: {canvasRT.sizeDelta}");
-            Debug.Log($"  - Font sizes: name={nameText.fontSize}, pct={pctText.fontSize}");
-        }
+        AutoSizeFonts(od);
     }
 
+    // El resto de tu script (SetupClickOnMain, NormalizeKey, etc.) permanece igual.
+    // ... (copia y pega el resto de tu script original aquí)
+    // ...
+    #region RestoDelCodigo
     void SetupClickOnMain(AreaOverlayData od, GameObject area)
     {
-        // Agrega un collider al objeto "clickeable" principal
         GameObject clickGO = null;
         if (useExactMeshOverlay && od.overlayMeshes.Count > 0) clickGO = od.overlayMeshes[0];
         else if (od.overlayQuad != null) clickGO = od.overlayQuad;
-        else clickGO = area; // ⬅️ Fallback: raíz del área (por si no hubo overlay)
+        else clickGO = area;
 
         if (clickGO != null)
         {
@@ -359,7 +342,6 @@ public class AreaOverlayPainter : MonoBehaviour
         }
     }
 
-    // ===================== Contenido =====================
     string NormalizeKey(string objectName)
     {
         string u = (objectName ?? "").ToUpper();
@@ -374,7 +356,7 @@ public class AreaOverlayPainter : MonoBehaviour
         if (areaManager == null) return null;
         string key = NormalizeKey(area.name);
 
-        var data = areaManager.GetAreaData(key); // tu AreaManager expone los datos por área
+        var data = areaManager.GetAreaData(key);
         if (data == null) return null;
 
         return new OverlayInfo
@@ -397,7 +379,6 @@ public class AreaOverlayPainter : MonoBehaviour
             Debug.Log($"[AreaOverlay] Actualizando {area.name}: display='{display}', overall={overall}%, color={c}");
         }
 
-        // aplicar color a todos los meshes/clones
         if (useExactMeshOverlay)
         {
             foreach (var ov in od.overlayMeshes)
@@ -424,16 +405,12 @@ public class AreaOverlayPainter : MonoBehaviour
             }
         }
 
-        // Actualizar textos con validación MEJORADA
         if (od.nameText)
         {
             string nameToShow = display.ToUpper();
             od.nameText.text = nameToShow;
             od.nameText.enabled = true;
-            od.nameText.gameObject.SetActive(true); // ← FORZAR ACTIVO
-
-            if (debugMode)
-                Debug.Log($"[AreaOverlay] Texto nombre FORZADO: '{nameToShow}' - active: {od.nameText.gameObject.activeInHierarchy}");
+            od.nameText.gameObject.SetActive(true);
         }
 
         if (od.percentageText)
@@ -441,18 +418,15 @@ public class AreaOverlayPainter : MonoBehaviour
             string pctToShow = $"{overall:F0}%";
             od.percentageText.text = pctToShow;
             od.percentageText.enabled = true;
-            od.percentageText.gameObject.SetActive(true); // ← FORZAR ACTIVO
-
-            if (debugMode)
-                Debug.Log($"[AreaOverlay] Texto porcentaje FORZADO: '{pctToShow}' - active: {od.percentageText.gameObject.activeInHierarchy}");
+            od.percentageText.gameObject.SetActive(true);
         }
 
-        // Forzar rebuild del canvas
         if (od.textCanvas != null)
         {
             od.textCanvas.gameObject.SetActive(true);
             od.textCanvas.enabled = true;
             Canvas.ForceUpdateCanvases();
+            AutoSizeFonts(od);
         }
     }
 
@@ -478,13 +452,11 @@ public class AreaOverlayPainter : MonoBehaviour
             }
             if (od.overlayQuad) od.overlayQuad.SetActive(active);
 
-            // TEXTO SIEMPRE ACTIVO en Top-Down
             if (od.textCanvas)
             {
                 od.textCanvas.gameObject.SetActive(active);
                 if (active && isTopDownMode)
                 {
-                    // Configuración especial para vista estática
                     od.textCanvas.enabled = true;
 
                     if (od.nameText)
@@ -497,9 +469,6 @@ public class AreaOverlayPainter : MonoBehaviour
                         od.percentageText.gameObject.SetActive(true);
                         od.percentageText.enabled = true;
                     }
-
-                    if (debugMode)
-                        Debug.Log($"[SetActive] Canvas y textos activados para top-down: {od.textCanvas.name}");
                 }
             }
         }
@@ -516,14 +485,54 @@ public class AreaOverlayPainter : MonoBehaviour
         areaOverlays.Clear();
     }
 
-    // Click → delega en tu flujo existente del manager
     public void HandleAreaClick(GameObject area)
     {
         if (areaManager != null)
             areaManager.OnAreaClicked(area);
     }
 
-    // Método para debug - llamar desde el inspector
+    void LayoutTextRects(RectTransform canvasRT, RectTransform nameRT, RectTransform pctRT)
+    {
+        float split = Mathf.Clamp01(nameBand);
+        nameRT.anchorMin = new Vector2(0f, 1f - split);
+        nameRT.anchorMax = new Vector2(1f, 1f);
+        nameRT.anchoredPosition = Vector2.zero;
+        nameRT.sizeDelta = Vector2.zero;
+        nameRT.offsetMin = new Vector2(100, 40);
+        nameRT.offsetMax = new Vector2(-100, -40);
+
+        pctRT.anchorMin = new Vector2(0f, 0f);
+        pctRT.anchorMax = new Vector2(1f, 1f - split);
+        pctRT.anchoredPosition = Vector2.zero;
+        pctRT.sizeDelta = Vector2.zero;
+        pctRT.offsetMin = new Vector2(100, 40);
+        pctRT.offsetMax = new Vector2(-100, -40);
+    }
+
+    void AutoSizeFonts(AreaOverlayData od)
+    {
+        if (!autoSizeTexts || od == null || od.textCanvas == null || od.nameText == null || od.percentageText == null) return;
+
+        RectTransform canvasRT = od.textCanvas.GetComponent<RectTransform>();
+        RectTransform nameRT = od.nameText.rectTransform;
+        RectTransform pctRT = od.percentageText.rectTransform;
+
+        LayoutTextRects(canvasRT, nameRT, pctRT);
+
+        float totalH = canvasRT.sizeDelta.y;
+        float nameH = Mathf.Max((nameRT.anchorMax.y - nameRT.anchorMin.y) * totalH - 80f, 50f);
+        float pctH = Mathf.Max((pctRT.anchorMax.y - pctRT.anchorMin.y) * totalH - 80f, 50f);
+
+        int nameSize = Mathf.Clamp(Mathf.RoundToInt(nameH * 0.60f * globalTextBoost), minNameFont, maxFont);
+        int pctSize = Mathf.Clamp(Mathf.RoundToInt(pctH * 0.75f * globalTextBoost), minPercentFont, maxFont);
+
+        if (od.nameText.fontSize != nameSize) od.nameText.fontSize = nameSize;
+        if (od.percentageText.fontSize != pctSize) od.percentageText.fontSize = pctSize;
+
+        if (debugMode)
+            Debug.Log($"[AutoSize] {od.textCanvas.name} -> name:{nameSize}px  pct:{pctSize}px  (totalH:{totalH})");
+    }
+
     [ContextMenu("Debug Canvas Info")]
     void DebugCanvasInfo()
     {
@@ -539,22 +548,22 @@ public class AreaOverlayPainter : MonoBehaviour
             if (od.textCanvas != null)
             {
                 Debug.Log($"  Canvas posición: {od.textCanvas.transform.position}");
+                Debug.Log($"  Canvas rotación: {od.textCanvas.transform.rotation.eulerAngles}");
                 Debug.Log($"  Canvas escala: {od.textCanvas.transform.localScale}");
                 Debug.Log($"  Canvas size: {od.textCanvas.GetComponent<RectTransform>().sizeDelta}");
             }
         }
     }
 
-    // NUEVO: Método para forzar visibilidad desde inspector
     [ContextMenu("Force Show Overlays")]
     void ForceShowOverlays()
     {
         SetTopDownMode(true);
         RefreshOverlaysForStaticView();
     }
+    #endregion
 }
 
-// Auxiliar para click
 public class AreaOverlayClick : MonoBehaviour
 {
     private GameObject targetArea;

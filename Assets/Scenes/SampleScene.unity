@@ -631,9 +631,19 @@ MonoBehaviour:
   overlayHeight: 0.02
   padding: 1
   textFont: {fileID: 0}
-  nameFontSize: 48
-  percentFontSize: 80
-  textColor: {r: 1, g: 1, b: 1, a: 1}
+  nameFontSize: 8000
+  percentFontSize: 8000
+  textColor: {r: 0, g: 0, b: 0, a: 1}
+  canvasScale: 0.01
+  debugMode: 1
+  autoSizeTexts: 0
+  nameBand: 0.8
+  minNameFont: 250
+  minPercentFont: 360
+  maxFont: 8000
+  globalTextBoost: 1.35
+  textLiftStatic: 2
+  textLiftDynamic: 5
   areaManager: {fileID: 1466288709}
   industrialDashboard: {fileID: 157548634}
 --- !u!4 &1172693543
