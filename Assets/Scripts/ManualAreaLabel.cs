@@ -1,73 +1,110 @@
 ﻿using UnityEngine;
 using TMPro;
 
-/// <summary>
-/// Script para manejar textos manuales de áreas que solo se muestran en vista top-down estática.
-/// Coloca este script en el GameObject padre que contiene los textos de cada área.
-/// </summary>
 public class ManualAreaLabel : MonoBehaviour
 {
     [Header("Referencias de Textos")]
-    [Tooltip("Asigna aquí el TextMeshPro del nombre del área")]
     public TextMeshProUGUI nameText;
-
-    [Tooltip("Asigna aquí el TextMeshPro del porcentaje")]
     public TextMeshProUGUI percentText;
 
     [Header("Configuración")]
-    [Tooltip("Clave del área para buscar datos (ATHONDA, VCTL4, BUZZERL2, VBL1)")]
     public string areaKey = "ATHONDA";
-
-    [Tooltip("Si quieres usar un nombre personalizado en lugar del que viene del AreaManager")]
     public bool useCustomName = false;
     public string customNameText = "AT HONDA";
 
     [Header("Vista")]
-    [Tooltip("Solo mostrar en vista top-down estática")]
     public bool onlyShowInStaticTopDown = true;
 
-    // Referencias internas
+    [Header("Colores de Texto")]
+    public bool keepTextBlack = true;
+
+    [Header("World Space / Orden")]
+    [Tooltip("Si se encuentra un Canvas en hijos, se forzará WorldSpace, cámara principal y orden alto.")]
+    public bool forceCanvasSetup = true;
+    [Tooltip("OrderInLayer alto para que se vea por encima del mapa.")]
+    public int canvasSortingOrder = 5000;
+    [Tooltip("Altura Y para no quedar pegado al plano.")]
+    public float labelHeightY = 0.25f;
+    [Tooltip("Escala base del Canvas para MAPA (útil si se ve muy pequeño en Game).")]
+    public float mapScale = 1.0f;
+
+    [Header("Debug")]
+    public bool enableDebug = false;
+
     private AreaManager areaManager;
     private TopDownCameraController topDownController;
     private bool currentlyVisible = false;
+    private float lastOverallResult = -1f;
+    private bool isRegistered = false;
+    private Canvas cachedCanvas;
 
     void Start()
     {
-        // Encontrar referencias necesarias
+        ManualLabelsManager.Register(this);
+        isRegistered = true;
+
         areaManager = FindObjectOfType<AreaManager>();
         var mainCamera = Camera.main;
-        if (mainCamera != null)
+        if (mainCamera != null) topDownController = mainCamera.GetComponent<TopDownCameraController>();
+
+        if (forceCanvasSetup)
+            SetupChildCanvas();
+
+        if (keepTextBlack)
         {
-            topDownController = mainCamera.GetComponent<TopDownCameraController>();
+            if (nameText) nameText.color = Color.black;
+            if (percentText) percentText.color = Color.black;
         }
 
-        // Configurar el nombre inicial si es personalizado
-        if (useCustomName && nameText != null && !string.IsNullOrEmpty(customNameText))
-        {
+        if (useCustomName && nameText && !string.IsNullOrEmpty(customNameText))
             nameText.text = customNameText;
+
+        SetVisibility(false);
+        UpdateTexts();
+    }
+
+    void SetupChildCanvas()
+    {
+        // Busca un canvas en hijos
+        cachedCanvas = GetComponentInChildren<Canvas>(true);
+        if (cachedCanvas == null)
+        {
+            if (enableDebug) Debug.LogWarning($"[ManualAreaLabel] {name}: No se encontró Canvas hijo.");
+            return;
         }
 
-        // Ocultar al inicio
-        SetVisibility(false);
+        cachedCanvas.renderMode = RenderMode.WorldSpace;
+        cachedCanvas.worldCamera = Camera.main;
+        cachedCanvas.overrideSorting = true;
+        cachedCanvas.sortingOrder = canvasSortingOrder;
 
-        // Actualizar datos iniciales
-        UpdateTexts();
+        // Sube un poquito el GameObject padre (donde está este script)
+        var p = transform.position;
+        transform.position = new Vector3(p.x, labelHeightY, p.z);
+
+        // Escala en MAPA (aplicamos cuando esté visible en MAPA)
     }
 
     void Update()
     {
-        // Verificar si debemos mostrar los textos
         bool shouldShow = ShouldShowTexts();
 
         if (shouldShow != currentlyVisible)
         {
+            if (enableDebug) Debug.Log($"[ManualAreaLabel {name}] Visible {currentlyVisible} → {shouldShow}");
             currentlyVisible = shouldShow;
             SetVisibility(currentlyVisible);
 
-            // Actualizar el porcentaje cuando se muestre
-            if (currentlyVisible)
+            if (currentlyVisible) UpdateTexts();
+        }
+
+        if (currentlyVisible)
+        {
+            var areaData = GetAreaData();
+            if (areaData != null && areaData.overallResult != lastOverallResult)
             {
                 UpdatePercentage();
+                lastOverallResult = areaData.overallResult;
             }
         }
     }
@@ -75,20 +112,28 @@ public class ManualAreaLabel : MonoBehaviour
     bool ShouldShowTexts()
     {
         if (!onlyShowInStaticTopDown) return true;
-
-        if (topDownController == null) return false;
-
-        // Verificar si estamos en modo top-down Y usando vista estática
-        return topDownController.enabled && topDownController.IsUsingFixedStaticView();
+        if (!topDownController)
+        {
+            if (enableDebug) Debug.Log($"[ManualAreaLabel] {name}: TopDownController null");
+            return false;
+        }
+        // Con el TopDownController corregido, esto devuelve true desde que pulsas MAPA
+        bool isTopDown = topDownController.GetCurrentMode() == TopDownCameraController.CameraMode.TopDown;
+        bool isStatic = topDownController.IsUsingFixedStaticView();
+        return isTopDown && isStatic;
     }
 
     void SetVisibility(bool visible)
     {
-        if (nameText != null)
-            nameText.gameObject.SetActive(visible);
+        if (nameText) nameText.gameObject.SetActive(visible);
+        if (percentText) percentText.gameObject.SetActive(visible);
 
-        if (percentText != null)
-            percentText.gameObject.SetActive(visible);
+        // Al mostrarse en MAPA, escalar si se requiere (para que sea visible en Game)
+        if (visible && cachedCanvas != null && topDownController != null && topDownController.IsUsingFixedStaticView())
+        {
+            var rt = cachedCanvas.transform as RectTransform;
+            if (rt != null) rt.localScale = Vector3.one * Mathf.Max(0.001f, mapScale);
+        }
     }
 
     void UpdateTexts()
@@ -99,65 +144,41 @@ public class ManualAreaLabel : MonoBehaviour
 
     void UpdateName()
     {
-        if (nameText == null) return;
+        if (!nameText) return;
 
         if (useCustomName)
-        {
             nameText.text = customNameText;
-        }
-        else if (areaManager != null)
+        else
         {
-            // Obtener el nombre del AreaManager
             var areaData = GetAreaData();
-            if (areaData != null)
-            {
-                nameText.text = areaData.displayName;
-            }
+            if (areaData != null) nameText.text = areaData.displayName;
         }
+
+        if (keepTextBlack) nameText.color = Color.black;
     }
 
     void UpdatePercentage()
     {
-        if (percentText == null || areaManager == null) return;
+        if (!percentText || areaManager == null) return;
 
         var areaData = GetAreaData();
         if (areaData != null)
         {
-            // Actualizar texto del porcentaje
             percentText.text = $"{areaData.overallResult:F0}%";
+            lastOverallResult = areaData.overallResult;
 
-            // Actualizar color según el valor
-            UpdatePercentageColor(areaData.overallResult);
+            if (keepTextBlack) percentText.color = Color.black;
         }
         else
         {
             percentText.text = "0%";
+            if (keepTextBlack) percentText.color = Color.black;
         }
-    }
-
-    void UpdatePercentageColor(float overallResult)
-    {
-        if (percentText == null) return;
-
-        Color targetColor;
-
-        if (overallResult >= 90f)
-            targetColor = new Color(0.0f, 0.6f, 0.2f); // Verde
-        else if (overallResult >= 80f)
-            targetColor = new Color(0.1f, 0.5f, 0.8f); // Azul  
-        else if (overallResult >= 70f)
-            targetColor = new Color(1f, 0.65f, 0f);     // Naranja
-        else
-            targetColor = new Color(0.9f, 0.2f, 0.2f);  // Rojo
-
-        percentText.color = targetColor;
     }
 
     AreaManager.AreaData GetAreaData()
     {
-        if (areaManager == null) return null;
-
-        // Normalizar la clave del área
+        if (!areaManager) return null;
         string normalizedKey = NormalizeAreaKey(areaKey);
         return areaManager.GetAreaData(normalizedKey);
     }
@@ -166,46 +187,33 @@ public class ManualAreaLabel : MonoBehaviour
     {
         string upper = (key ?? "").ToUpperInvariant();
         upper = upper.Replace("AREA_", "").Replace(" ", "").Replace("_", "");
-
-        // Mapear a las claves exactas que usa AreaManager
         if (upper.Contains("ATHONDA") || upper == "ATHONDA") return "ATHONDA";
         if (upper.Contains("VCTL4") || upper == "VCTL4") return "VCTL4";
         if (upper.Contains("BUZZERL2") || upper == "BUZZERL2") return "BUZZERL2";
         if (upper.Contains("VBL1") || upper == "VBL1") return "VBL1";
-
         return upper;
     }
 
-    // Método público para forzar actualización (llamado desde AreaManager si es necesario)
     public void ForceRefresh()
     {
+        if (enableDebug) Debug.Log($"[ManualAreaLabel] {name}: ForceRefresh()");
         UpdateTexts();
     }
 
-    /// <summary>
-    /// ✅ NUEVO: Método llamado por ManualLabelsManager para fijar visibilidad
-    /// cuando cambia el estado de la vista top-down.
-    /// </summary>
     public void SetTopDownVisibility(bool visible)
     {
-        // Si este label solo debe mostrarse en la vista top-down estática,
-        // respetamos el parámetro 'visible' que manda el manager.
-        currentlyVisible = visible;
+        if (enableDebug) Debug.Log($"[ManualAreaLabel] {name}: SetTopDownVisibility({visible})");
         SetVisibility(visible);
-
-        if (visible)
-        {
-            // Aseguramos que los datos estén frescos al mostrarse.
-            UpdateTexts();
-        }
+        if (visible) UpdateTexts();
     }
 
-    // Para depuración en el Inspector
+    void OnDestroy()
+    {
+        if (isRegistered) ManualLabelsManager.Unregister(this);
+    }
+
     void OnValidate()
     {
-        if (Application.isPlaying && currentlyVisible)
-        {
-            UpdateTexts();
-        }
+        if (Application.isPlaying && currentlyVisible) UpdateTexts();
     }
 }

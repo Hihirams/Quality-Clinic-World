@@ -24,7 +24,6 @@ public class TopDownCameraController : MonoBehaviour
 
     [Header("Vista Top-Down fija (opcional)")]
     public bool useFixedStaticView = true;
-    // 🔁 CAMBIADO: posición/rotación fija según tu captura
     [SerializeField] private Vector3 fixedTopDownPosition = new Vector3(-34.9f, 168.6f, 20.3f);
     [SerializeField] private Vector3 fixedTopDownEuler = new Vector3(90f, 0f, 0f);
 
@@ -69,8 +68,25 @@ public class TopDownCameraController : MonoBehaviour
         if (isTransitioning) UpdateTransition();
     }
 
-    // Lo usa AreaCard
-    public bool IsUsingFixedStaticView() => useFixedStaticView;
+    // ========= CAMBIOS CLAVE =========
+    // Ahora GetCurrentMode y IsUsingFixedStaticView consideran el "target" durante una transición
+    public CameraMode GetCurrentMode()
+    {
+        // Si estamos en transición, reporta el modo objetivo: así el resto del sistema
+        // responde inmediatamente a MAPA/Libre en cuanto se pulsa el botón.
+        return isTransitioning ? targetMode : currentMode;
+    }
+
+    public bool IsTopDownTarget() => targetMode == CameraMode.TopDown;
+
+    public bool IsUsingFixedStaticView()
+    {
+        // Usar el modo objetivo durante transiciones garantiza que AreaCard y ManualAreaLabel
+        // reaccionen desde el primer frame tras pulsar el botón.
+        var mode = isTransitioning ? targetMode : currentMode;
+        return (mode == CameraMode.TopDown) && useFixedStaticView;
+    }
+    // ========= FIN CAMBIOS CLAVE =========
 
     void CalculateTopDownTransform()
     {

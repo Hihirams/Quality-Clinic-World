@@ -397,6 +397,8 @@ public class AreaCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 
     // ------------------- API para Top-Down -------------------
     // REEMPLAZADO COMPLETAMENTE SEGÚN TU INDICACIÓN:
+    // ------------------- API para Top-Down -------------------
+    // REEMPLAZADO COMPLETAMENTE SEGÚN TU INDICACIÓN:
     public void SetTopDownMode(bool enabled)
     {
         topDownEnabled = enabled;
@@ -411,6 +413,8 @@ public class AreaCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         {
             if (cardCanvas != null) cardCanvas.gameObject.SetActive(false);
             if (pointerLine != null) pointerLine.gameObject.SetActive(false);
+
+            Debug.Log($"AreaCard {areaData.areaName}: Ocultada en vista estática");
             return;
         }
         else
@@ -418,6 +422,8 @@ public class AreaCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
             // Mostrar tarjetas cuando no estemos en vista estática
             if (cardCanvas != null) cardCanvas.gameObject.SetActive(true);
             if (pointerLine != null) pointerLine.gameObject.SetActive(true);
+
+            Debug.Log($"AreaCard {areaData.areaName}: Mostrada - no vista estática");
         }
 
         // Resto del código existente para vista top-down dinámica

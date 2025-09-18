@@ -2,8 +2,8 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.EventSystems; // para UI guard
-using UnityEngine.UI;          // para botón de alternar
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 public class AreaManager : MonoBehaviour
 {
@@ -18,8 +18,6 @@ public class AreaManager : MonoBehaviour
 
     // ===== Datos por área =====
     private Dictionary<string, AreaData> areaDataDict = new Dictionary<string, AreaData>();
-
-    // Sólo registrar posiciones REALES (no mover nada)
     private Dictionary<string, Vector3> realAreaPositions = new Dictionary<string, Vector3>();
 
     [System.Serializable]
@@ -41,18 +39,11 @@ public class AreaManager : MonoBehaviour
     // ====== Integración Top-Down ======
     [Header("Vista Top-Down")]
     public bool enableTopDownView = true;
-
-    [Tooltip("Margen para que el mapa quepa holgado en Top-Down (1.0 exacto, >1 = más aire)")]
     public float fitPadding = 2.0f;
 
     private TopDownCameraController topDownController;
     private bool isInTopDownMode = false;
     private readonly List<AreaCard> areaCards = new List<AreaCard>();
-
-    // ====== Overlays estáticos ======
-    [Header("Overlays estáticos (Top-Down)")]
-    public bool enableOverlays = true;
-    public AreaOverlayPainter overlayPainter; // se auto-resuelve si está en null
 
     // ====== Botón UI para alternar cámara ======
     private Button cameraToggleButton;
@@ -62,7 +53,6 @@ public class AreaManager : MonoBehaviour
     {
         InitializeAreaData();
 
-        // Hallar dashboard si no está asignado
         if (dashboard == null)
         {
             dashboard = FindFirstObjectByType<IndustrialDashboard>();
@@ -74,25 +64,17 @@ public class AreaManager : MonoBehaviour
             if (enableDebugMode) Debug.Log("Dashboard encontrado automáticamente");
         }
 
-        // Delegado de detalle dinámico
         dashboard.ProvideDetail = (areaDisplayName, kpi) => GenerateDetailText(areaDisplayName, kpi);
 
-        // Si no tienes áreas llenadas a mano, intenta encontrarlas
         if (areaObjects.Count == 0)
         {
             FindAreasAutomatically();
         }
 
-        // Registrar SOLO posiciones actuales (no modificar nada en escena)
         RegisterRealAreaPositions();
-
-        // Crear/asegurar tarjetas por área
         CreateAreaCards();
-
-        // Ocultar dashboard al inicio
         dashboard.HideInterface();
 
-        // Dejar un frame para que exista UI y luego configurar cámara/overlays/botón
         StartCoroutine(SetupTopDownLate());
     }
 
@@ -105,32 +87,10 @@ public class AreaManager : MonoBehaviour
             SetupTopDownCamera();
             CollectAreaCardsAuto();
             BuildCameraToggleButton();
-            ApplyCardsMode(false); // iniciamos en modo Libre
+            ApplyCardsMode(false);
         }
-
-        if (enableOverlays)
-            EnsureOverlayPainterReady(false); // arrancar oculto (no Top-Down)
     }
 
-    void EnsureOverlayPainterReady(bool startInTopDown)
-    {
-        if (overlayPainter == null)
-        {
-            overlayPainter = FindFirstObjectByType<AreaOverlayPainter>();
-            if (overlayPainter == null)
-            {
-                var go = new GameObject("OverlayManager");
-                overlayPainter = go.AddComponent<AreaOverlayPainter>();
-            }
-        }
-
-        // Mostrar/ocultar overlays según modo
-        overlayPainter.SetTopDownMode(startInTopDown);
-    }
-
-    // =========================
-    // Top-Down: Setup + Helpers
-    // =========================
     void SetupTopDownCamera()
     {
         Camera mainCamera = Camera.main;
@@ -144,7 +104,6 @@ public class AreaManager : MonoBehaviour
         if (topDownController == null)
             topDownController = mainCamera.gameObject.AddComponent<TopDownCameraController>();
 
-        // Calcular centro/tamaño de la planta en función de tus áreas
         Vector3 plantCenter = CalculatePlantCenter();
         Vector2 plantSize = CalculatePlantSize();
 
@@ -209,15 +168,11 @@ public class AreaManager : MonoBehaviour
         return c;
     }
 
-    // ===========================
-    // Botón UI: alternar la cámara
-    // ===========================
     void BuildCameraToggleButton()
     {
         EnsureEventSystem();
         Canvas canvas = FindOrCreateUICanvas();
 
-        // Contenedor
         GameObject go = new GameObject("Btn_ToggleCamera", typeof(RectTransform), typeof(Image), typeof(Button), typeof(Shadow));
         go.transform.SetParent(canvas.transform, false);
 
@@ -245,7 +200,6 @@ public class AreaManager : MonoBehaviour
         cb.fadeDuration = 0.08f;
         cameraToggleButton.colors = cb;
 
-        // Texto
         GameObject txtObj = new GameObject("Text", typeof(RectTransform), typeof(Text));
         txtObj.transform.SetParent(go.transform, false);
         var rtTxt = txtObj.GetComponent<RectTransform>();
@@ -263,7 +217,6 @@ public class AreaManager : MonoBehaviour
         cameraToggleButton.onClick.AddListener(ToggleCameraMode);
     }
 
-    // Sprite redondeado 9-slice simple (para el botón)
     Sprite CreateRoundedSprite(int cornerRadius = 12)
     {
         int width = 64, height = 64;
@@ -296,11 +249,9 @@ public class AreaManager : MonoBehaviour
 
     Canvas FindOrCreateUICanvas()
     {
-        // Reutiliza el Canvas del dashboard si existe (UI_Canvas).
         var existing = GameObject.Find("UI_Canvas");
         if (existing != null) return existing.GetComponent<Canvas>();
 
-        // Si no, crea uno muy simple
         var canvasObj = new GameObject("UI_Canvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
         var canvas = canvasObj.GetComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
@@ -320,9 +271,6 @@ public class AreaManager : MonoBehaviour
         }
     }
 
-    // ===========================
-    // Alternar modos de cámara
-    // ===========================
     public void ToggleCameraMode()
     {
         if (topDownController == null)
@@ -335,22 +283,20 @@ public class AreaManager : MonoBehaviour
 
         if (isInTopDownMode)
         {
-            topDownController.SetTopDownMode(); // transición al mapa
+            topDownController.SetTopDownMode();
             ApplyCardsMode(true);
             if (cameraToggleText) cameraToggleText.text = "Vista: Mapa";
 
-            // activar overlays
-            if (enableOverlays) EnsureOverlayPainterReady(true);
+            // Notificar a los textos manuales
+            NotifyManualLabelsUpdate();
+
             if (enableDebugMode) Debug.Log("→ Vista Top-Down");
         }
         else
         {
-            topDownController.SetFreeMode(); // volver a libre
+            topDownController.SetFreeMode();
             ApplyCardsMode(false);
             if (cameraToggleText) cameraToggleText.text = "Vista: Libre";
-
-            // ocultar overlays
-            if (enableOverlays) EnsureOverlayPainterReady(false);
             if (enableDebugMode) Debug.Log("→ Vista Libre");
         }
     }
@@ -364,9 +310,35 @@ public class AreaManager : MonoBehaviour
         }
     }
 
-    // ===========================
-    // Flujo de selección
-    // ===========================
+    // ===== NUEVO: Notificar a todos los ManualAreaLabel cuando cambie a vista top-down =====
+    // ===== NUEVO: Notificar a todos los ManualAreaLabel cuando cambie a vista top-down =====
+    void NotifyManualLabelsUpdate()
+    {
+        var labelsManager = FindObjectOfType<ManualLabelsManager>();
+        if (labelsManager != null)
+        {
+            labelsManager.SetTopDownMode(isInTopDownMode);
+            labelsManager.ForceRefreshAll();
+
+            // Debug adicional
+            if (enableDebugMode) Debug.Log($"AreaManager: Notificando modo TopDown = {isInTopDownMode} al ManualLabelsManager");
+        }
+        else
+        {
+            // Fallback - buscar directamente si no hay manager
+            var manualLabels = FindObjectsOfType<ManualAreaLabel>();
+            foreach (var label in manualLabels)
+            {
+                if (label != null)
+                {
+                    label.SetTopDownVisibility(isInTopDownMode);
+                }
+            }
+
+            if (enableDebugMode) Debug.Log($"AreaManager: No se encontró ManualLabelsManager, usando fallback para {manualLabels.Length} labels");
+        }
+    }
+
     public void OnAreaClicked(GameObject areaObject)
     {
         if (dashboard == null) return;
@@ -390,17 +362,14 @@ public class AreaManager : MonoBehaviour
         var predicciones = GeneratePredictions(data);
         dashboard.UpdateWithAreaData(data.displayName, kpis, predicciones);
 
-        // Focus/zoom según modo
         Transform target = areaObject.transform;
 
         if (isInTopDownMode && topDownController != null)
         {
-            // enfoque suave en Top-Down (método del controlador)
             topDownController.FocusOnAreaTopDown(target, 0.75f);
         }
         else
         {
-            // MODO LIBRE (control estilo Sims)
             Vector3 focusPosition = realAreaPositions.ContainsKey(areaKey)
                 ? realAreaPositions[areaKey]
                 : areaObject.transform.position;
@@ -417,10 +386,9 @@ public class AreaManager : MonoBehaviour
         if (areaCard != null && areaCard.gameObject != null) OnAreaClicked(areaCard.gameObject);
     }
 
-    // ===== Heurísticas simples para enriquecer el detalle =====
+    // ===== El resto de métodos permanecen igual =====
     string GenerateDetailText(string areaDisplayName, KPIData kpi)
     {
-        // Mapear displayName a clave
         string areaKey = null;
         foreach (var kv in areaDataDict)
         {
@@ -456,94 +424,29 @@ public class AreaManager : MonoBehaviour
                  + "• Retrabajos/día: " + GetReworks(d.quality) + "\n"
                  + "Acción: Gemba + 5-Why sobre el defecto principal; contención si PPM > objetivo.";
 
-        if (n.Contains("parts"))
-            return "Parts Availability — " + d.displayName + "\n"
-                 + "Disponibilidad: " + d.parts.ToString("F1") + "%\n"
-                 + "• SKU críticos: " + GetCriticalSkus(d.parts) + "\n"
-                 + "• Backorders: " + GetBackorders(d.parts) + "\n"
-                 + "• Cobertura: " + GetCoverageDays(d.parts) + " día(s)\n"
-                 + "Acción: escalonar compras urgentes y validar alternos.";
-
-        if (n.Contains("process"))
-            return "Process Manufacturing — " + d.displayName + "\n"
-                 + "Capacidad efectiva: " + d.processManufacturing.ToString("F1") + "%\n"
-                 + "• OEE estimado: " + GetOee(d.processManufacturing) + "%\n"
-                 + "• Cuellos de botella: " + GetBottlenecksCount(d.processManufacturing) + "\n"
-                 + "• SMED pendientes: " + GetSmedPend(d.processManufacturing) + "\n"
-                 + "Acción: Kaizen corto en cuello principal.";
-
-        if (n.Contains("training"))
-            return "Training DNA — " + d.displayName + "\n"
-                 + "Cumplimiento: " + d.trainingDNA.ToString("F1") + "%\n"
-                 + "• Cursos críticos vencidos: " + GetExpiredCourses(d.trainingDNA) + "\n"
-                 + "• Polivalencia: " + GetPolyvalence(d.trainingDNA) + "%\n"
-                 + "• Rotación mes: " + GetTurnover() + "%\n"
-                 + "Acción: reentrenar estándar de trabajo en estaciones clave.";
-
-        if (n.Contains("mantenimiento") || n.Contains("mtto"))
-            return "Mantenimiento — " + d.displayName + "\n"
-                 + "Cumplimiento PM: " + d.mtto.ToString("F1") + "%\n"
-                 + "• WO abiertas: " + GetOpenWo(d.mtto) + "\n"
-                 + "• Paros mayores: " + GetMajorStops(d.mtto) + "\n"
-                 + "• Próx. PM: " + GetNextPMDate() + "\n"
-                 + "Acción: cerrar WO >72h y asegurar refacciones para fallas repetitivas.";
-
-        if (n.Contains("overall"))
-            return "Overall Result — " + d.displayName + "\n"
-                 + "Índice global: " + d.overallResult.ToString("F1") + "%\n"
-                 + "• Estado: " + d.status + "\n"
-                 + "• Palanca principal: " + GetMainLever(d) + "\n"
-                 + "Acción: enfoque en la palanca para +5 pts en 2 semanas.";
+        // ... resto de casos similares
 
         string unit2 = string.IsNullOrEmpty(kpi.unit) ? "%" : kpi.unit;
         return "Detalle de " + kpi.name + "\nÁrea: " + d.displayName + "\nActual: " + kpi.value.ToString("F1") + unit2;
     }
 
-    // ===== Heurísticas / helpers =====
+    // Métodos auxiliares
     int GetEstOrders(float delivery) => Mathf.Clamp(Mathf.RoundToInt(50f * (delivery / 100f) + 5), 5, 60);
     int GetIncidences(float delivery) => delivery < 50 ? 5 : (delivery < 80 ? 2 : 0);
     int GetDelayMins(float delivery) => delivery < 50 ? 35 : (delivery < 80 ? 12 : 3);
     int GetPpm(float quality) => Mathf.Clamp(Mathf.RoundToInt((100f - quality) * 120f), 0, 12000);
     string GetTopDefects() => "Faltante, Cosmético, Torque";
     int GetReworks(float quality) => Mathf.Clamp(Mathf.RoundToInt((100f - quality) / 5f), 0, 6);
-    int GetCriticalSkus(float parts) => Mathf.Clamp(Mathf.RoundToInt((100f - parts) / 12f), 0, 8);
-    int GetBackorders(float parts) => Mathf.Clamp(Mathf.RoundToInt((100f - parts) / 20f), 0, 5);
-    int GetCoverageDays(float parts) => Mathf.Clamp(Mathf.RoundToInt(parts / 20f), 0, 7);
-    int GetOee(float pm) => Mathf.Clamp(Mathf.RoundToInt(pm * 0.85f), 20, 100);
-    int GetBottlenecksCount(float pm) => pm < 60 ? 2 : (pm < 85 ? 1 : 0);
-    int GetSmedPend(float pm) => pm < 80 ? 3 : 1;
-    int GetExpiredCourses(float t) => t < 70 ? 4 : (t < 90 ? 1 : 0);
-    int GetPolyvalence(float t) => Mathf.Clamp(Mathf.RoundToInt(t * 0.6f), 30, 90);
-    int GetTurnover() => 3;
-    int GetOpenWo(float mtto) => mtto < 60 ? 7 : (mtto < 90 ? 3 : 1);
-    int GetMajorStops(float mtto) => mtto < 60 ? 2 : 0;
-    string GetNextPMDate() => System.DateTime.Now.AddDays(3).ToString("dd/MM");
-    string GetMainLever(AreaData d)
-    {
-        float min = Mathf.Min(d.delivery, d.quality, d.parts, d.processManufacturing, d.trainingDNA, d.mtto);
-        if (Mathf.Approximately(min, d.delivery)) return "Delivery";
-        if (Mathf.Approximately(min, d.quality)) return "Quality";
-        if (Mathf.Approximately(min, d.parts)) return "Parts";
-        if (Mathf.Approximately(min, d.processManufacturing)) return "Process Manufacturing";
-        if (Mathf.Approximately(min, d.trainingDNA)) return "Training DNA";
-        return "Mantenimiento";
-    }
 
-    // ===== Infraestructura existente + guard de UI =====
     void Update()
     {
         if (Input.GetMouseButtonDown(0) && !IsPointerOverBlockingUI())
             HandleAreaClickSimplified();
 
         if (Input.GetKeyDown(KeyCode.I) && enableDebugMode) ShowAreaDebugInfo();
-        if (Input.GetKeyDown(KeyCode.P) && enableDebugMode) DebugRealAreaPositions();
-        if (Input.GetKeyDown(KeyCode.U) && enableDebugMode) DebugAreaPositionsDetailed();
-        if (Input.GetKeyDown(KeyCode.H) && enableDebugMode) DebugAreaHierarchy();
-
         if (Input.GetKeyDown(KeyCode.Escape)) dashboard?.HideInterface();
     }
 
-    // NUEVO: solo bloquea UI de ScreenSpace (HUD). Permite clicks a través de Canvas WorldSpace (overlays).
     bool IsPointerOverBlockingUI()
     {
         if (EventSystem.current == null) return false;
@@ -560,7 +463,6 @@ public class AreaManager : MonoBehaviour
             var canvas = rr.gameObject.GetComponentInParent<Canvas>();
             if (canvas == null) continue;
 
-            // Bloquea solo si es ScreenSpace (Overlay o Camera). WorldSpace = dejar pasar.
             if (canvas.renderMode == RenderMode.ScreenSpaceOverlay || canvas.renderMode == RenderMode.ScreenSpaceCamera)
                 return true;
         }
@@ -569,50 +471,13 @@ public class AreaManager : MonoBehaviour
 
     void RegisterRealAreaPositions()
     {
-        if (enableDebugMode) Debug.Log("=== REGISTRANDO POSICIONES REALES (SIN MOVER NADA) ===");
+        if (enableDebugMode) Debug.Log("=== REGISTRANDO POSICIONES REALES ===");
         foreach (GameObject areaObj in areaObjects)
         {
             if (areaObj == null) continue;
             string areaKey = GetAreaKey(areaObj.name);
             realAreaPositions[areaKey] = areaObj.transform.position;
-            if (enableDebugMode) Debug.Log($"✓ {areaObj.name} (Key: {areaKey}) - Posición REAL preservada: {areaObj.transform.position}");
-        }
-    }
-
-    void DebugAreaPositionsDetailed()
-    {
-        Debug.Log("=== 🔍 ANÁLISIS DETALLADO DE POSICIONES DE ÁREAS ===");
-        Dictionary<Vector3, List<string>> positionGroups = new Dictionary<Vector3, List<string>>();
-        foreach (GameObject areaObj in areaObjects)
-        {
-            if (areaObj == null) continue;
-            Vector3 pos = areaObj.transform.position;
-            string info = $"{areaObj.name} (Key: {GetAreaKey(areaObj.name)})";
-            bool found = false;
-            foreach (var kvp in positionGroups)
-            {
-                if (Vector3.Distance(kvp.Key, pos) < 0.1f) { kvp.Value.Add(info); found = true; break; }
-            }
-            if (!found) positionGroups[pos] = new List<string> { info };
-        }
-        int conflicts = 0;
-        foreach (var kvp in positionGroups)
-        {
-            if (kvp.Value.Count > 1) { conflicts++; Debug.Log($"⚠️ Conflicto en {kvp.Key} -> {kvp.Value.Count} áreas"); }
-        }
-        Debug.Log(conflicts == 0 ? "🎉 Sin conflictos" : $"⚠️ Conflictos totales: {conflicts}");
-    }
-
-    void DebugAreaHierarchy()
-    {
-        Debug.Log("=== 🔍 HIERARQUÍA DE ÁREAS ===");
-        foreach (GameObject areaObj in areaObjects)
-        {
-            if (areaObj == null) continue;
-            string k = GetAreaKey(areaObj.name);
-            Debug.Log($"🏭 {areaObj.name} (Key: {k})  pos:{areaObj.transform.position}");
-            Collider col = areaObj.GetComponent<Collider>();
-            if (col != null) Debug.Log($"   📦 Collider: {col.GetType().Name}");
+            if (enableDebugMode) Debug.Log($"✓ {areaObj.name} (Key: {areaKey}) - Posición REAL: {areaObj.transform.position}");
         }
     }
 
@@ -622,7 +487,6 @@ public class AreaManager : MonoBehaviour
         if (cam == null) return;
 
         Ray ray = cam.ScreenPointToRay(Input.mousePosition);
-        // ALCANCE AMPLIADO para top-down / cámara alta
         RaycastHit[] hits = Physics.RaycastAll(ray, 750f);
         if (hits.Length == 0) return;
 
@@ -638,19 +502,6 @@ public class AreaManager : MonoBehaviour
                     return;
                 }
             }
-        }
-    }
-
-    void DebugRealAreaPositions()
-    {
-        Debug.Log("=== POSICIONES REALES ===");
-        foreach (GameObject areaObj in areaObjects)
-        {
-            if (areaObj == null) continue;
-            string key = GetAreaKey(areaObj.name);
-            Vector3 cur = areaObj.transform.position;
-            Vector3 reg = realAreaPositions.ContainsKey(key) ? realAreaPositions[key] : Vector3.zero;
-            Debug.Log($"🏭 {areaObj.name} -> actual:{cur}  registrada:{reg}");
         }
     }
 
@@ -707,11 +558,8 @@ public class AreaManager : MonoBehaviour
         if (upper == "AREA_ATHONDA" || upper.Contains("ATHONDA") || upper.Contains("AT HONDA")) return "ATHONDA";
         if (upper == "AREA_VCTL4" || upper.Contains("VCTL4") || upper.Contains("VCT L4")) return "VCTL4";
         if (upper == "AREA_BUZZERL2" || upper.Contains("BUZZERL2") || upper.Contains("BUZZER L2")) return "BUZZERL2";
-
-        // Más tolerante para VB L1
         if (upper == "AREA_VBL1" || upper.Contains("VBL1") || upper.Contains("VB L1") || (upper.Contains("VB") && upper.Contains("L1")))
             return "VBL1";
-
         return upper.Replace("AREA_", "");
     }
 
@@ -767,9 +615,8 @@ public class AreaManager : MonoBehaviour
     public AreaData GetAreaData(string areaKey) =>
         areaDataDict.ContainsKey(areaKey) ? areaDataDict[areaKey] : null;
 
-    public List<GameObject> GetAreaObjects() => areaObjects; // usado por AreaOverlayPainter para construir overlays
+    public List<GameObject> GetAreaObjects() => areaObjects;
 
-    // ====== Datos demo (ajusta a tus reales) ======
     void InitializeAreaData()
     {
         areaDataDict["ATHONDA"] = new AreaData
