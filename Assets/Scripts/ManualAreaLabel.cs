@@ -1,42 +1,67 @@
 ﻿using UnityEngine;
 using TMPro;
 
+/// <summary>
+/// Textos manuales que se ven solo en la vista MAPA (top-down fija).
+/// Colócalo en el GameObject padre que contiene NameText y PercentText.
+/// </summary>
 public class ManualAreaLabel : MonoBehaviour
 {
     [Header("Referencias de Textos")]
+    [Tooltip("TextMeshProUGUI del nombre")]
     public TextMeshProUGUI nameText;
+    [Tooltip("TextMeshProUGUI del porcentaje")]
     public TextMeshProUGUI percentText;
 
     [Header("Configuración")]
+    [Tooltip("Clave del área (ATHONDA, VCTL4, BUZZERL2, VBL1). Se auto-detecta si está vacío o si se habilita autoDetect.")]
     public string areaKey = "ATHONDA";
+    [Tooltip("Forzar nombre personalizado (ignora el AreaManager)")]
     public bool useCustomName = false;
     public string customNameText = "AT HONDA";
 
     [Header("Vista")]
+    [Tooltip("Solo mostrar en vista top-down fija (MAPA)")]
     public bool onlyShowInStaticTopDown = true;
 
     [Header("Colores de Texto")]
+    [Tooltip("Forzar texto negro")]
     public bool keepTextBlack = true;
 
     [Header("World Space / Orden")]
-    [Tooltip("Si se encuentra un Canvas en hijos, se forzará WorldSpace, cámara principal y orden alto.")]
     public bool forceCanvasSetup = true;
-    [Tooltip("OrderInLayer alto para que se vea por encima del mapa.")]
     public int canvasSortingOrder = 5000;
-    [Tooltip("Altura Y para no quedar pegado al plano.")]
     public float labelHeightY = 0.25f;
-    [Tooltip("Escala base del Canvas para MAPA (útil si se ve muy pequeño en Game).")]
     public float mapScale = 1.0f;
+
+    [Header("Autodetección")]
+    [Tooltip("Si está activo, intenta deducir la clave del área buscando el ancestro con nombre Area_* (e.g., Area_VCTL4).")]
+    public bool autoDetectAreaFromHierarchy = true;
 
     [Header("Debug")]
     public bool enableDebug = false;
 
+    // Internos
     private AreaManager areaManager;
     private TopDownCameraController topDownController;
     private bool currentlyVisible = false;
     private float lastOverallResult = -1f;
     private bool isRegistered = false;
     private Canvas cachedCanvas;
+
+    void Awake()
+    {
+        // Autodetectar clave ANTES de cualquier uso
+        if (autoDetectAreaFromHierarchy)
+        {
+            string detected = DetectAreaKeyFromParents();
+            if (!string.IsNullOrEmpty(detected))
+            {
+                areaKey = detected; // siempre preferimos la jerarquía
+            }
+        }
+        if (enableDebug) Debug.Log($"[ManualAreaLabel:{name}] areaKey inicial = {areaKey}");
+    }
 
     void Start()
     {
@@ -47,8 +72,7 @@ public class ManualAreaLabel : MonoBehaviour
         var mainCamera = Camera.main;
         if (mainCamera != null) topDownController = mainCamera.GetComponent<TopDownCameraController>();
 
-        if (forceCanvasSetup)
-            SetupChildCanvas();
+        if (forceCanvasSetup) SetupChildCanvas();
 
         if (keepTextBlack)
         {
@@ -56,33 +80,22 @@ public class ManualAreaLabel : MonoBehaviour
             if (percentText) percentText.color = Color.black;
         }
 
+        // Si el usuario pidió nombre custom, se muestra de inicio
         if (useCustomName && nameText && !string.IsNullOrEmpty(customNameText))
             nameText.text = customNameText;
 
+        // Ocultar de inicio; se activará al entrar a MAPA
         SetVisibility(false);
+
+        // Datos iniciales
         UpdateTexts();
-    }
 
-    void SetupChildCanvas()
-    {
-        // Busca un canvas en hijos
-        cachedCanvas = GetComponentInChildren<Canvas>(true);
-        if (cachedCanvas == null)
+        if (enableDebug)
         {
-            if (enableDebug) Debug.LogWarning($"[ManualAreaLabel] {name}: No se encontró Canvas hijo.");
-            return;
+            var d = GetAreaData();
+            string nkey = NormalizeAreaKey(areaKey);
+            Debug.Log($"[ManualAreaLabel:{name}] NormalizedKey={nkey} | Data={(d != null ? d.displayName : "NULL")}");
         }
-
-        cachedCanvas.renderMode = RenderMode.WorldSpace;
-        cachedCanvas.worldCamera = Camera.main;
-        cachedCanvas.overrideSorting = true;
-        cachedCanvas.sortingOrder = canvasSortingOrder;
-
-        // Sube un poquito el GameObject padre (donde está este script)
-        var p = transform.position;
-        transform.position = new Vector3(p.x, labelHeightY, p.z);
-
-        // Escala en MAPA (aplicamos cuando esté visible en MAPA)
     }
 
     void Update()
@@ -91,33 +104,33 @@ public class ManualAreaLabel : MonoBehaviour
 
         if (shouldShow != currentlyVisible)
         {
-            if (enableDebug) Debug.Log($"[ManualAreaLabel {name}] Visible {currentlyVisible} → {shouldShow}");
+            if (enableDebug) Debug.Log($"[ManualAreaLabel:{name}] Visible {currentlyVisible} → {shouldShow}");
             currentlyVisible = shouldShow;
             SetVisibility(currentlyVisible);
-
             if (currentlyVisible) UpdateTexts();
         }
 
         if (currentlyVisible)
         {
-            var areaData = GetAreaData();
-            if (areaData != null && areaData.overallResult != lastOverallResult)
+            var data = GetAreaData();
+            if (data != null && data.overallResult != lastOverallResult)
             {
                 UpdatePercentage();
-                lastOverallResult = areaData.overallResult;
+                lastOverallResult = data.overallResult;
             }
         }
     }
 
+    // ---------- Visibilidad ----------
     bool ShouldShowTexts()
     {
         if (!onlyShowInStaticTopDown) return true;
         if (!topDownController)
         {
-            if (enableDebug) Debug.Log($"[ManualAreaLabel] {name}: TopDownController null");
+            if (enableDebug) Debug.Log($"[ManualAreaLabel:{name}] TopDownController null");
             return false;
         }
-        // Con el TopDownController corregido, esto devuelve true desde que pulsas MAPA
+
         bool isTopDown = topDownController.GetCurrentMode() == TopDownCameraController.CameraMode.TopDown;
         bool isStatic = topDownController.IsUsingFixedStaticView();
         return isTopDown && isStatic;
@@ -128,14 +141,34 @@ public class ManualAreaLabel : MonoBehaviour
         if (nameText) nameText.gameObject.SetActive(visible);
         if (percentText) percentText.gameObject.SetActive(visible);
 
-        // Al mostrarse en MAPA, escalar si se requiere (para que sea visible en Game)
         if (visible && cachedCanvas != null && topDownController != null && topDownController.IsUsingFixedStaticView())
         {
             var rt = cachedCanvas.transform as RectTransform;
             if (rt != null) rt.localScale = Vector3.one * Mathf.Max(0.001f, mapScale);
         }
+
+        if (enableDebug) Debug.Log($"[ManualAreaLabel:{name}] SetVisibility({visible})");
     }
 
+    // ---------- Canvas ----------
+    void SetupChildCanvas()
+    {
+        cachedCanvas = GetComponentInChildren<Canvas>(true);
+        if (!cachedCanvas)
+        {
+            if (enableDebug) Debug.LogWarning($"[ManualAreaLabel:{name}] No se encontró Canvas hijo.");
+            return;
+        }
+        cachedCanvas.renderMode = RenderMode.WorldSpace;
+        cachedCanvas.worldCamera = Camera.main;
+        cachedCanvas.overrideSorting = true;
+        cachedCanvas.sortingOrder = canvasSortingOrder;
+
+        var p = transform.position;
+        transform.position = new Vector3(p.x, labelHeightY, p.z);
+    }
+
+    // ---------- Textos ----------
     void UpdateTexts()
     {
         UpdateName();
@@ -146,12 +179,14 @@ public class ManualAreaLabel : MonoBehaviour
     {
         if (!nameText) return;
 
-        if (useCustomName)
+        if (useCustomName && !string.IsNullOrEmpty(customNameText))
+        {
             nameText.text = customNameText;
+        }
         else
         {
-            var areaData = GetAreaData();
-            if (areaData != null) nameText.text = areaData.displayName;
+            var data = GetAreaData();
+            if (data != null) nameText.text = data.displayName;
         }
 
         if (keepTextBlack) nameText.color = Color.black;
@@ -159,14 +194,12 @@ public class ManualAreaLabel : MonoBehaviour
 
     void UpdatePercentage()
     {
-        if (!percentText || areaManager == null) return;
+        if (!percentText) return;
 
-        var areaData = GetAreaData();
-        if (areaData != null)
+        var data = GetAreaData();
+        if (data != null)
         {
-            percentText.text = $"{areaData.overallResult:F0}%";
-            lastOverallResult = areaData.overallResult;
-
+            percentText.text = $"{data.overallResult:F0}%";
             if (keepTextBlack) percentText.color = Color.black;
         }
         else
@@ -176,6 +209,7 @@ public class ManualAreaLabel : MonoBehaviour
         }
     }
 
+    // ---------- Datos ----------
     AreaManager.AreaData GetAreaData()
     {
         if (!areaManager) return null;
@@ -187,6 +221,7 @@ public class ManualAreaLabel : MonoBehaviour
     {
         string upper = (key ?? "").ToUpperInvariant();
         upper = upper.Replace("AREA_", "").Replace(" ", "").Replace("_", "");
+
         if (upper.Contains("ATHONDA") || upper == "ATHONDA") return "ATHONDA";
         if (upper.Contains("VCTL4") || upper == "VCTL4") return "VCTL4";
         if (upper.Contains("BUZZERL2") || upper == "BUZZERL2") return "BUZZERL2";
@@ -194,15 +229,36 @@ public class ManualAreaLabel : MonoBehaviour
         return upper;
     }
 
+    // Detección por jerarquía: busca el ancestro con nombre "Area_*"
+    string DetectAreaKeyFromParents()
+    {
+        Transform t = transform;
+        while (t != null)
+        {
+            string n = t.name.ToUpperInvariant();
+            if (n.StartsWith("AREA_"))
+            {
+                // e.g., Area_VCTL4 → VCTL4
+                string k = n.Substring(5);
+                k = k.Replace(" ", "").Replace("_", "");
+                if (enableDebug) Debug.Log($"[ManualAreaLabel:{name}] Detectado por jerarquía: {k}");
+                return NormalizeAreaKey(k);
+            }
+            t = t.parent;
+        }
+        return null;
+    }
+
+    // API para manager
     public void ForceRefresh()
     {
-        if (enableDebug) Debug.Log($"[ManualAreaLabel] {name}: ForceRefresh()");
+        if (enableDebug) Debug.Log($"[ManualAreaLabel:{name}] ForceRefresh()");
         UpdateTexts();
     }
 
     public void SetTopDownVisibility(bool visible)
     {
-        if (enableDebug) Debug.Log($"[ManualAreaLabel] {name}: SetTopDownVisibility({visible})");
+        if (enableDebug) Debug.Log($"[ManualAreaLabel:{name}] SetTopDownVisibility({visible})");
         SetVisibility(visible);
         if (visible) UpdateTexts();
     }
