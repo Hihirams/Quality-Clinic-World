@@ -1,16 +1,13 @@
-# Ignora todo por defecto
-/*
-
-# Mantén solo estos archivos y carpetas en el repo
-!.gitignore
-!.gitattributes
-!.vsconfig
-!update.bat
-!Assets/
-!Packages/
-!ProjectSettings/
-
-# Asegura que todo el contenido interno de esas carpetas sí se trackee
-!Assets/**
-!Packages/**
-!ProjectSettings/**
+﻿[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Mm]emoryCaptures/
+UserSettings/
+.vs/
+*.csproj
+*.sln
+*.user
+*.unitypackage

@@ -292,13 +292,18 @@ public class AreaManager : MonoBehaviour
 
             if (enableDebugMode) Debug.Log("→ Vista Top-Down");
         }
-        else
-        {
-            topDownController.SetFreeMode();
-            ApplyCardsMode(false);
-            if (cameraToggleText) cameraToggleText.text = "Vista: Libre";
-            if (enableDebugMode) Debug.Log("→ Vista Libre");
-        }
+else
+{
+    topDownController.SetFreeMode();
+    ApplyCardsMode(false);
+    if (cameraToggleText) cameraToggleText.text = "Vista: Libre";
+
+    // 🔧 Notificar para ocultar todos los ManualAreaLabel al salir de MAPA
+    NotifyManualLabelsUpdate();
+
+    if (enableDebugMode) Debug.Log("→ Vista Libre");
+}
+
     }
 
     void ApplyCardsMode(bool topdown)

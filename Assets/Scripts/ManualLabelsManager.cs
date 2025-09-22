@@ -7,6 +7,9 @@ public class ManualLabelsManager : MonoBehaviour
     private readonly HashSet<ManualAreaLabel> _labels = new HashSet<ManualAreaLabel>();
     private bool _currentTopDownMode = false;
 
+    [Header("Debug")]
+    public bool enableDebug = true;
+
     void Awake()
     {
         if (_instance != null && _instance != this)
@@ -16,6 +19,8 @@ public class ManualLabelsManager : MonoBehaviour
         }
         _instance = this;
         DontDestroyOnLoad(gameObject);
+
+        if (enableDebug) Debug.Log("[ManualLabelsManager] Instancia creada");
     }
 
     public static void Register(ManualAreaLabel label)
@@ -24,22 +29,26 @@ public class ManualLabelsManager : MonoBehaviour
         {
             var go = new GameObject("ManualLabelsManager");
             _instance = go.AddComponent<ManualLabelsManager>();
+            DontDestroyOnLoad(go);
+            Debug.Log("[ManualLabelsManager] Instancia creada automáticamente");
         }
 
-        _instance._labels.Add(label); // ✅ CORREGIDO: era *instance.*labels
+        _instance._labels.Add(label);
 
-        // Si ya tenemos un estado establecido, aplicarlo inmediatamente
+        // Aplicar estado actual inmediatamente
         label.SetTopDownVisibility(_instance._currentTopDownMode);
 
-        Debug.Log($"ManualAreaLabel registrado: {label.name}. Total labels: {_instance._labels.Count}");
+        if (_instance.enableDebug)
+            Debug.Log($"[ManualLabelsManager] Label registrado: {label.name}. Total: {_instance._labels.Count}");
     }
 
     public static void Unregister(ManualAreaLabel label)
     {
         if (_instance != null)
         {
-            _instance._labels.Remove(label); // ✅ CORREGIDO: era *instance.*labels
-            Debug.Log($"ManualAreaLabel desregistrado: {label.name}. Total labels: {_instance._labels.Count}");
+            _instance._labels.Remove(label);
+            if (_instance.enableDebug)
+                Debug.Log($"[ManualLabelsManager] Label desregistrado: {label.name}. Total: {_instance._labels.Count}");
         }
     }
 
@@ -47,7 +56,11 @@ public class ManualLabelsManager : MonoBehaviour
     {
         _currentTopDownMode = enabled;
 
-        Debug.Log($"ManualLabelsManager: Cambiando modo top-down a {enabled}. Aplicando a {_labels.Count} labels.");
+        if (enableDebug)
+            Debug.Log($"[ManualLabelsManager] Modo top-down: {enabled}. Aplicando a {_labels.Count} labels.");
+
+        // Limpiar referencias nulas primero
+        _labels.RemoveWhere(l => l == null);
 
         foreach (var label in _labels)
         {
@@ -56,14 +69,15 @@ public class ManualLabelsManager : MonoBehaviour
                 label.SetTopDownVisibility(enabled);
             }
         }
-
-        // Limpiar referencias nulas
-        _labels.RemoveWhere(l => l == null);
     }
 
     public void ForceRefreshAll()
     {
-        Debug.Log($"ManualLabelsManager: Refrescando {_labels.Count} labels.");
+        if (enableDebug)
+            Debug.Log($"[ManualLabelsManager] Refrescando {_labels.Count} labels.");
+
+        // Limpiar referencias nulas
+        _labels.RemoveWhere(l => l == null);
 
         foreach (var label in _labels)
         {
@@ -72,27 +86,16 @@ public class ManualLabelsManager : MonoBehaviour
                 label.ForceRefresh();
             }
         }
-
-        // Limpiar referencias nulas
-        _labels.RemoveWhere(l => l == null);
     }
 
-    public bool GetCurrentTopDownMode()
-    {
-        return _currentTopDownMode;
-    }
+    public bool GetCurrentTopDownMode() => _currentTopDownMode;
+    public int GetLabelCount() => _labels.Count;
 
-    public int GetLabelCount()
-    {
-        return _labels.Count;
-    }
-
-    // Método para debug
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.F10) && Application.isEditor)
+        if (Input.GetKeyDown(KeyCode.F10))
         {
-            Debug.Log($"=== MANUAL LABELS DEBUG ===");
+            Debug.Log("=== MANUAL LABELS DEBUG ===");
             Debug.Log($"Modo Top-Down actual: {_currentTopDownMode}");
             Debug.Log($"Labels registrados: {_labels.Count}");
 
@@ -100,9 +103,34 @@ public class ManualLabelsManager : MonoBehaviour
             {
                 if (label != null)
                 {
-                    Debug.Log($"- {label.name} | Área: {label.areaKey} | Activo: {label.gameObject.activeInHierarchy}");
+                    var canvas = label.GetComponentInChildren<Canvas>();
+                    var camera = canvas != null ? canvas.worldCamera : null;
+
+                    Debug.Log($"- {label.name}:");
+                    Debug.Log($"  Área: {label.areaKey}");
+                    Debug.Log($"  Activo: {label.gameObject.activeInHierarchy}");
+                    Debug.Log($"  Posición: {label.transform.position}");
+                    Debug.Log($"  Canvas: {(canvas != null ? canvas.renderMode.ToString() : "NULL")}");
+                    Debug.Log($"  Cámara Canvas: {(camera != null ? camera.name : "NULL")}");
                 }
             }
         }
     }
+
+    void OnDestroy()
+    {
+        if (_instance == this)
+        {
+            _labels.Clear();
+            _instance = null;
+        }
+    }
+
+#if UNITY_EDITOR
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    static void ResetStaticsOnLoad()
+    {
+        _instance = null;
+    }
+#endif
 }

@@ -74,6 +74,9 @@ public class ManualAreaLabel : MonoBehaviour
 
         if (forceCanvasSetup) SetupChildCanvas();
 
+        // 🔧 Asegurar cámara en el canvas (importante en build)
+        EnsureCanvasCamera();
+
         if (keepTextBlack)
         {
             if (nameText) nameText.color = Color.black;
@@ -100,6 +103,9 @@ public class ManualAreaLabel : MonoBehaviour
 
     void Update()
     {
+        // En build es posible que Camera.main tarde 1 frame: reintenta
+        EnsureCanvasCamera();
+
         bool shouldShow = ShouldShowTexts();
 
         if (shouldShow != currentlyVisible)
@@ -125,15 +131,25 @@ public class ManualAreaLabel : MonoBehaviour
     bool ShouldShowTexts()
     {
         if (!onlyShowInStaticTopDown) return true;
-        if (!topDownController)
+
+        // 1) Señal robusta del Manager (útil en build)
+        var mgr = FindObjectOfType<ManualLabelsManager>();
+        bool managerSaysTopDown = (mgr != null) && mgr.GetCurrentTopDownMode();
+
+        // 2) Señal de la cámara (si existe)
+        bool topDownOk = false;
+        bool staticOk = false;
+
+        if (topDownController != null)
         {
-            if (enableDebug) Debug.Log($"[ManualAreaLabel:{name}] TopDownController null");
-            return false;
+            topDownOk = (topDownController.GetCurrentMode() == TopDownCameraController.CameraMode.TopDown);
+            staticOk = topDownController.IsUsingFixedStaticView();
         }
 
-        bool isTopDown = topDownController.GetCurrentMode() == TopDownCameraController.CameraMode.TopDown;
-        bool isStatic = topDownController.IsUsingFixedStaticView();
-        return isTopDown && isStatic;
+        // Regla:
+        // - Si el manager dice TopDown → mostramos,
+        // - o si la cámara está en TopDown y (idealmente) fija.
+        return managerSaysTopDown || (topDownOk && staticOk);
     }
 
     void SetVisibility(bool visible)
@@ -141,10 +157,14 @@ public class ManualAreaLabel : MonoBehaviour
         if (nameText) nameText.gameObject.SetActive(visible);
         if (percentText) percentText.gameObject.SetActive(visible);
 
-        if (visible && cachedCanvas != null && topDownController != null && topDownController.IsUsingFixedStaticView())
+        if (visible && cachedCanvas != null)
         {
+            // Ajustar escala para vista fija
             var rt = cachedCanvas.transform as RectTransform;
             if (rt != null) rt.localScale = Vector3.one * Mathf.Max(0.001f, mapScale);
+
+            // Asegurar cámara por si aún no estaba
+            EnsureCanvasCamera();
         }
 
         if (enableDebug) Debug.Log($"[ManualAreaLabel:{name}] SetVisibility({visible})");
@@ -160,12 +180,23 @@ public class ManualAreaLabel : MonoBehaviour
             return;
         }
         cachedCanvas.renderMode = RenderMode.WorldSpace;
-        cachedCanvas.worldCamera = Camera.main;
+        cachedCanvas.worldCamera = Camera.main;  // puede ser null en primer frame (por eso EnsureCanvasCamera)
         cachedCanvas.overrideSorting = true;
         cachedCanvas.sortingOrder = canvasSortingOrder;
 
         var p = transform.position;
         transform.position = new Vector3(p.x, labelHeightY, p.z);
+    }
+
+    // --- NUEVO: asegurar cámara en el Canvas (especialmente en build) ---
+    void EnsureCanvasCamera()
+    {
+        if (!cachedCanvas) return;
+        if (cachedCanvas.renderMode == RenderMode.WorldSpace && cachedCanvas.worldCamera == null)
+        {
+            var cam = Camera.main;
+            if (cam != null) cachedCanvas.worldCamera = cam;
+        }
     }
 
     // ---------- Textos ----------
@@ -259,13 +290,17 @@ public class ManualAreaLabel : MonoBehaviour
     public void SetTopDownVisibility(bool visible)
     {
         if (enableDebug) Debug.Log($"[ManualAreaLabel:{name}] SetTopDownVisibility({visible})");
-        SetVisibility(visible);
-        if (visible) UpdateTexts();
+        // Solo se muestra si además la condición de ShouldShowTexts() lo permite
+        bool finalVisible = visible && ShouldShowTexts();
+        SetVisibility(finalVisible);
+        if (finalVisible) UpdateTexts();
     }
 
+    // Siempre desregistrar (Editor y Build)
     void OnDestroy()
     {
         if (isRegistered) ManualLabelsManager.Unregister(this);
+        isRegistered = false;
     }
 
     void OnValidate()
