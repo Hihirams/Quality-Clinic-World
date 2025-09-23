@@ -6,6 +6,9 @@ using UnityEngine.EventSystems;
 
 public class IndustrialDashboard : MonoBehaviour
 {
+
+
+
     [Header("Referencias de UI - Se crean automáticamente")]
     private Canvas mainCanvas;
 
@@ -40,6 +43,8 @@ public class IndustrialDashboard : MonoBehaviour
 
     [Header("Configuración de Comportamiento")]
     public bool showOnStart = false;
+
+    public event System.Action OnHidden;
 
     // === API para detalle dinámico ===
     // Asigna esto desde otro script para generar el texto del detalle por (área, KPI).
@@ -143,6 +148,8 @@ public class IndustrialDashboard : MonoBehaviour
         {
             mainCanvas.gameObject.SetActive(false);
         }
+
+        OnHidden?.Invoke();
     }
 
     public void ShowInterface()
@@ -299,9 +306,15 @@ public class IndustrialDashboard : MonoBehaviour
         closeTextRect.anchoredPosition = Vector2.zero;
 
         closeButton.onClick.AddListener(() => {
-            HideInterface();
             AreaManager areaManager = FindObjectOfType<AreaManager>();
-            if (areaManager != null) areaManager.CloseDashboard();
+            if (areaManager != null)
+            {
+                areaManager.CloseDashboard();
+            }
+            else
+            {
+                HideInterface();
+            }
         });
 
         AddModernButtonHoverEffects(closeButton, lightGrayColor);

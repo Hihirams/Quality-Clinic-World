@@ -27,6 +27,14 @@ public class TopDownCameraController : MonoBehaviour
     [SerializeField] private Vector3 fixedTopDownPosition = new Vector3(-34.9f, 168.6f, 20.3f);
     [SerializeField] private Vector3 fixedTopDownEuler = new Vector3(90f, 0f, 0f);
 
+    [Header("Focus al área (encuadre)")]
+    [SerializeField, Tooltip("margen extra alrededor del área al hacer focus")]
+    private float focusPaddingPercent = 0.20f;
+    [SerializeField] private float minFocusHeight = 25f;
+    [SerializeField] private float maxFocusHeight = 220f;
+    [SerializeField, Tooltip("Duración por defecto al regresar al home estático")]
+    private float returnSeconds = 0.6f;
+
     public enum CameraMode { Free, TopDown }
     private CameraMode currentMode;
     private CameraMode targetMode;
@@ -44,6 +52,10 @@ public class TopDownCameraController : MonoBehaviour
 
     // Overlays
     private AreaOverlayPainter _overlay;
+
+    // "Home" de la vista estática (a dónde regresamos al cerrar dashboard)
+    private Vector3 staticHomePos;
+    private Quaternion staticHomeRot;
 
     void Start()
     {
@@ -68,25 +80,18 @@ public class TopDownCameraController : MonoBehaviour
         if (isTransitioning) UpdateTransition();
     }
 
-    // ========= CAMBIOS CLAVE =========
-    // Ahora GetCurrentMode y IsUsingFixedStaticView consideran el "target" durante una transición
+    // ========= Reporte de estado (considera target cuando hay transición) =========
     public CameraMode GetCurrentMode()
     {
-        // Si estamos en transición, reporta el modo objetivo: así el resto del sistema
-        // responde inmediatamente a MAPA/Libre en cuanto se pulsa el botón.
         return isTransitioning ? targetMode : currentMode;
     }
-
     public bool IsTopDownTarget() => targetMode == CameraMode.TopDown;
-
     public bool IsUsingFixedStaticView()
     {
-        // Usar el modo objetivo durante transiciones garantiza que AreaCard y ManualAreaLabel
-        // reaccionen desde el primer frame tras pulsar el botón.
         var mode = isTransitioning ? targetMode : currentMode;
         return (mode == CameraMode.TopDown) && useFixedStaticView;
     }
-    // ========= FIN CAMBIOS CLAVE =========
+    // =========================================================================
 
     void CalculateTopDownTransform()
     {
@@ -126,7 +131,6 @@ public class TopDownCameraController : MonoBehaviour
 
     public void ToggleCameraMode()
     {
-        if (isTransitioning) return;
         if (currentMode == CameraMode.Free) SetTopDownMode();
         else SetFreeMode();
     }
@@ -138,13 +142,20 @@ public class TopDownCameraController : MonoBehaviour
 
         if (useFixedStaticView)
         {
-            transform.position = fixedTopDownPosition;
-            transform.rotation = Quaternion.Euler(fixedTopDownEuler);
+            // Guardar "home" estático
+            staticHomePos = fixedTopDownPosition;
+            staticHomeRot = Quaternion.Euler(fixedTopDownEuler);
+
+            transform.position = staticHomePos;
+            transform.rotation = staticHomeRot;
         }
         else
         {
-            transform.position = topDownPosition;
-            transform.rotation = topDownRotation;
+            staticHomePos = topDownPosition;
+            staticHomeRot = topDownRotation;
+
+            transform.position = staticHomePos;
+            transform.rotation = staticHomeRot;
         }
 
         if (freeCameraController != null)
@@ -152,6 +163,8 @@ public class TopDownCameraController : MonoBehaviour
 
         _overlay = _overlay ?? FindFirstObjectByType<AreaOverlayPainter>();
         _overlay?.SetTopDownMode(true);
+
+        // Basado en tu implementación previa de cambio inmediato: :contentReference[oaicite:5]{index=5}
     }
 
     public void SetTopDownMode()
@@ -169,10 +182,16 @@ public class TopDownCameraController : MonoBehaviour
         Vector3 targetPos = useFixedStaticView ? fixedTopDownPosition : topDownPosition;
         Quaternion targetRot = useFixedStaticView ? Quaternion.Euler(fixedTopDownEuler) : topDownRotation;
 
+        // Guardar "home" de esta sesión top-down
+        staticHomePos = targetPos;
+        staticHomeRot = targetRot;
+
         StartTransition(targetPos, targetRot, CameraMode.TopDown);
 
         _overlay = _overlay ?? FindFirstObjectByType<AreaOverlayPainter>();
         _overlay?.SetTopDownMode(true);
+
+        // Estructura de transición preservada del archivo base: :contentReference[oaicite:6]{index=6}
     }
 
     public void SetFreeMode()
@@ -219,18 +238,57 @@ public class TopDownCameraController : MonoBehaviour
             freeCameraController.enabled = (currentMode == CameraMode.Free);
     }
 
+    // ============== NUEVO: Focus encuadrando el área de verdad ==============
     public void FocusOnAreaTopDown(Transform area, float zoomSeconds = 0.75f)
     {
         if (area == null || _cam == null) return;
-        StartCoroutine(FocusRoutine(area, zoomSeconds));
+        StopAllCoroutines();
+        StartCoroutine(FocusRoutineFit(area.gameObject, Mathf.Max(0.1f, zoomSeconds)));
     }
 
-    IEnumerator FocusRoutine(Transform target, float seconds)
+    private IEnumerator FocusRoutineFit(GameObject areaObj, float seconds)
     {
-        Vector3 targetPos = target.position + Vector3.up * cameraHeight;
-        Quaternion targetRot = Quaternion.Euler(90f, 0f, 0f);
-        yield return TransitionRoutine(targetPos, targetRot, CameraMode.TopDown);
+        // 1) Bounds del área por renderers
+        Bounds b = GetWorldBounds(areaObj);
+        Vector3 center = b.center;
+
+        // 2) Radio útil en XZ + padding
+        float half = Mathf.Max(b.extents.x, b.extents.z);
+        half *= (1f + focusPaddingPercent);
+
+        // 3) Altura requerida según FOV vertical, vista perpendicular
+        float fovRad = _cam.fieldOfView * Mathf.Deg2Rad;
+        float requiredHeight = half / Mathf.Tan(fovRad * 0.5f);
+        float height = Mathf.Clamp(requiredHeight, minFocusHeight, maxFocusHeight);
+
+        Vector3 toPos = new Vector3(center.x, height, center.z);
+        Quaternion toRot = Quaternion.Euler(90f, 0f, 0f);
+
+        // Transición suave
+        yield return TransitionRoutine(toPos, toRot, CameraMode.TopDown);
     }
 
-    void UpdateTransition() { }
+    private Bounds GetWorldBounds(GameObject go)
+    {
+        var rends = go.GetComponentsInChildren<Renderer>();
+        if (rends != null && rends.Length > 0)
+        {
+            Bounds b = rends[0].bounds;
+            for (int i = 1; i < rends.Length; i++) b.Encapsulate(rends[i].bounds);
+            return b;
+        }
+        // Fallback si no hay renderers
+        return new Bounds(go.transform.position, new Vector3(10, 2, 10));
+    }
+
+    // ============== NUEVO: Volver al punto "home" estático ==============
+    public void ReturnToStaticHome(float secondsOverride = -1f)
+    {
+        if (GetCurrentMode() != CameraMode.TopDown) return;
+        float secs = (secondsOverride > 0f) ? secondsOverride : returnSeconds;
+        StopAllCoroutines();
+        StartCoroutine(TransitionRoutine(staticHomePos, staticHomeRot, CameraMode.TopDown));
+    }
+
+    void UpdateTransition() { /* reservado por si quieres interpolaciones extra */ }
 }

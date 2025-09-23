@@ -615,7 +615,13 @@ else
     public void CloseDashboard()
     {
         dashboard?.HideInterface();
+        // Al cerrar dashboard, regresar la cámara a la vista estática original (home)
+        if (isInTopDownMode && topDownController != null)
+        {
+            topDownController.ReturnToStaticHome(0.6f);
+        }
     }
+
 
     public AreaData GetAreaData(string areaKey) =>
         areaDataDict.ContainsKey(areaKey) ? areaDataDict[areaKey] : null;
