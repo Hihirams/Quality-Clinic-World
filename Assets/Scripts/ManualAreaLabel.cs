@@ -3,7 +3,7 @@ using TMPro;
 
 /// <summary>
 /// Textos manuales que se ven solo en la vista MAPA (top-down fija).
-/// Colócalo en el GameObject padre que contiene NameText y PercentText.
+/// VERSIÓN CORREGIDA para consistencia Editor/Runtime
 /// </summary>
 public class ManualAreaLabel : MonoBehaviour
 {
@@ -14,28 +14,40 @@ public class ManualAreaLabel : MonoBehaviour
     public TextMeshProUGUI percentText;
 
     [Header("Configuración")]
-    [Tooltip("Clave del área (ATHONDA, VCTL4, BUZZERL2, VBL1). Se auto-detecta si está vacío o si se habilita autoDetect.")]
+    [Tooltip("Clave del área (ATHONDA, VCTL4, BUZZERL2, VBL1). Se auto-detecta si está vacío.")]
     public string areaKey = "ATHONDA";
-    [Tooltip("Forzar nombre personalizado (ignora el AreaManager)")]
+    [Tooltip("Forzar nombre personalizado")]
     public bool useCustomName = false;
     public string customNameText = "AT HONDA";
 
     [Header("Vista")]
-    [Tooltip("Solo mostrar en vista top-down fija (MAPA)")]
+    [Tooltip("Solo mostrar en vista top-down fija")]
     public bool onlyShowInStaticTopDown = true;
 
     [Header("Colores de Texto")]
     [Tooltip("Forzar texto negro")]
     public bool keepTextBlack = true;
 
-    [Header("World Space / Orden")]
-    public bool forceCanvasSetup = true;
-    public int canvasSortingOrder = 5000;
+    [Header("Canvas Settings - CLAVE PARA CONSISTENCIA")]
+    [Tooltip("Altura Y fija para el label")]
     public float labelHeightY = 0.25f;
-    public float mapScale = 1.0f;
+    [Tooltip("Escala base del canvas (ajustar según necesidad)")]
+    public float canvasBaseScale = 1.0f;
+    [Tooltip("Escala específica para vista mapa")]
+    public float mapModeScale = 1.2f;
+    [Tooltip("Orden de sorting")]
+    public int canvasSortingOrder = 5000;
+
+    [Header("🔧 CORRECCIÓN DE POSICIÓN")]
+    [Tooltip("Offset en X para ajustar posición final")]
+    public float positionOffsetX = 0f;
+    [Tooltip("Offset en Z para ajustar posición final")]
+    public float positionOffsetZ = 0f;
+    [Tooltip("Forzar recalculo de posición en cada frame")]
+    public bool continuousPositionUpdate = true;
 
     [Header("Autodetección")]
-    [Tooltip("Si está activo, intenta deducir la clave del área buscando el ancestro con nombre Area_* (e.g., Area_VCTL4).")]
+    [Tooltip("Detectar área por jerarquía")]
     public bool autoDetectAreaFromHierarchy = true;
 
     [Header("Debug")]
@@ -48,19 +60,34 @@ public class ManualAreaLabel : MonoBehaviour
     private float lastOverallResult = -1f;
     private bool isRegistered = false;
     private Canvas cachedCanvas;
+    private Vector3 originalWorldPosition;
+    private bool hasBeenPositioned = false;
+
+    void OnValidate()
+    {
+        // Guardar posición solo si no está en play mode
+        if (!Application.isPlaying)
+        {
+            originalWorldPosition = transform.position;
+        }
+    }
 
     void Awake()
     {
-        // Autodetectar clave ANTES de cualquier uso
+        // Autodetectar clave
         if (autoDetectAreaFromHierarchy)
         {
             string detected = DetectAreaKeyFromParents();
             if (!string.IsNullOrEmpty(detected))
             {
-                areaKey = detected; // siempre preferimos la jerarquía
+                areaKey = detected;
             }
         }
-        if (enableDebug) Debug.Log($"[ManualAreaLabel:{name}] areaKey inicial = {areaKey}");
+
+        // Guardar posición original
+        originalWorldPosition = transform.position;
+
+        if (enableDebug) Debug.Log($"[ManualAreaLabel:{name}] Awake - areaKey = {areaKey}, pos = {originalWorldPosition}");
     }
 
     void Start()
@@ -69,53 +96,50 @@ public class ManualAreaLabel : MonoBehaviour
         isRegistered = true;
 
         areaManager = FindObjectOfType<AreaManager>();
-        var mainCamera = Camera.main;
+        var mainCamera = Camera.main ?? FindObjectOfType<Camera>();
         if (mainCamera != null) topDownController = mainCamera.GetComponent<TopDownCameraController>();
 
-        if (forceCanvasSetup) SetupChildCanvas();
+        // Setup crítico del canvas
+        SetupCanvasForConsistency();
 
-        // 🔧 Asegurar cámara en el canvas (importante en build)
-        EnsureCanvasCamera();
-
+        // Colores iniciales
         if (keepTextBlack)
         {
             if (nameText) nameText.color = Color.black;
             if (percentText) percentText.color = Color.black;
         }
 
-        // Si el usuario pidió nombre custom, se muestra de inicio
+        // Nombre personalizado
         if (useCustomName && nameText && !string.IsNullOrEmpty(customNameText))
             nameText.text = customNameText;
 
-        // Ocultar de inicio; se activará al entrar a MAPA
+        // Estado inicial
         SetVisibility(false);
-
-        // Datos iniciales
         UpdateTexts();
 
         if (enableDebug)
         {
-            var d = GetAreaData();
-            string nkey = NormalizeAreaKey(areaKey);
-            Debug.Log($"[ManualAreaLabel:{name}] NormalizedKey={nkey} | Data={(d != null ? d.displayName : "NULL")}");
+            Debug.Log($"[ManualAreaLabel:{name}] Start completado");
         }
     }
 
     void Update()
     {
-        // En build es posible que Camera.main tarde 1 frame: reintenta
-        EnsureCanvasCamera();
+        // 🔧 CORRECCIÓN CLAVE: Asegurar cámara y posición consistente
+        EnsureCanvasConsistency();
 
+        // Actualizar visibilidad
         bool shouldShow = ShouldShowTexts();
-
         if (shouldShow != currentlyVisible)
         {
-            if (enableDebug) Debug.Log($"[ManualAreaLabel:{name}] Visible {currentlyVisible} → {shouldShow}");
             currentlyVisible = shouldShow;
             SetVisibility(currentlyVisible);
             if (currentlyVisible) UpdateTexts();
+
+            if (enableDebug) Debug.Log($"[ManualAreaLabel:{name}] Visibilidad: {shouldShow}");
         }
 
+        // Actualizar datos si cambian
         if (currentlyVisible)
         {
             var data = GetAreaData();
@@ -125,18 +149,138 @@ public class ManualAreaLabel : MonoBehaviour
                 lastOverallResult = data.overallResult;
             }
         }
+
+        // 🔧 Actualización continua de posición si está habilitada
+        if (continuousPositionUpdate && currentlyVisible)
+        {
+            UpdateCanvasPosition();
+        }
     }
 
-    // ---------- Visibilidad ----------
+    // ========== MÉTODOS CORREGIDOS ==========
+
+    void SetupCanvasForConsistency()
+    {
+        cachedCanvas = GetComponentInChildren<Canvas>(true);
+        if (!cachedCanvas)
+        {
+            if (enableDebug) Debug.LogError($"[ManualAreaLabel:{name}] No se encontró Canvas hijo!");
+            return;
+        }
+
+        // Configuración básica
+        cachedCanvas.renderMode = RenderMode.WorldSpace;
+        cachedCanvas.overrideSorting = true;
+        cachedCanvas.sortingOrder = canvasSortingOrder;
+
+        // Asegurar cámara inmediatamente
+        AssignCameraToCanvas();
+
+        // Posición inicial
+        UpdateCanvasPosition();
+
+        // Escala inicial
+        UpdateCanvasScale();
+
+        if (enableDebug) Debug.Log($"[ManualAreaLabel:{name}] Canvas configurado - Camera: {cachedCanvas.worldCamera?.name}");
+    }
+
+    void EnsureCanvasConsistency()
+    {
+        if (!cachedCanvas) return;
+
+        // Verificar y reasignar cámara si es necesario
+        if (cachedCanvas.renderMode == RenderMode.WorldSpace)
+        {
+            if (cachedCanvas.worldCamera == null)
+            {
+                AssignCameraToCanvas();
+            }
+        }
+    }
+
+    void AssignCameraToCanvas()
+    {
+        if (!cachedCanvas) return;
+
+        Camera targetCamera = null;
+
+        // Prioridad: Camera.main > FindObjectOfType<Camera>
+        targetCamera = Camera.main;
+        if (targetCamera == null)
+        {
+            targetCamera = FindObjectOfType<Camera>();
+        }
+
+        if (targetCamera != null)
+        {
+            cachedCanvas.worldCamera = targetCamera;
+            if (enableDebug) Debug.Log($"[ManualAreaLabel:{name}] Cámara asignada: {targetCamera.name}");
+        }
+        else
+        {
+            if (enableDebug) Debug.LogWarning($"[ManualAreaLabel:{name}] No se encontró cámara!");
+        }
+    }
+
+    void UpdateCanvasPosition()
+    {
+        if (!cachedCanvas) return;
+
+        // Posicionar el GameObject base (para referencias)
+        Vector3 finalPosition = originalWorldPosition;
+        finalPosition.x += positionOffsetX;
+        finalPosition.y = labelHeightY;
+        finalPosition.z += positionOffsetZ;
+        transform.position = finalPosition;
+
+        // Resetear Canvas local
+        cachedCanvas.transform.localPosition = Vector3.zero;
+    }
+
+    void UpdateCanvasScale()
+    {
+        if (!cachedCanvas) return;
+
+        bool isInMapMode = ShouldShowTexts() && currentlyVisible;
+        float targetScale = isInMapMode ? (canvasBaseScale * mapModeScale) : canvasBaseScale;
+
+        var rt = cachedCanvas.transform as RectTransform;
+        if (rt != null)
+        {
+            rt.localScale = Vector3.one * targetScale;
+        }
+    }
+
+    void CenterChildTexts()
+    {
+        if (nameText)
+        {
+            var rt = nameText.rectTransform;
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;
+            rt.localRotation = Quaternion.identity;
+        }
+        if (percentText)
+        {
+            var rt = percentText.rectTransform;
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;
+            rt.localRotation = Quaternion.identity;
+        }
+    }
+
+    // ========== RESTO DE MÉTODOS IGUAL ==========
+
     bool ShouldShowTexts()
     {
         if (!onlyShowInStaticTopDown) return true;
 
-        // 1) Señal robusta del Manager (útil en build)
         var mgr = FindObjectOfType<ManualLabelsManager>();
         bool managerSaysTopDown = (mgr != null) && mgr.GetCurrentTopDownMode();
 
-        // 2) Señal de la cámara (si existe)
         bool topDownOk = false;
         bool staticOk = false;
 
@@ -146,9 +290,6 @@ public class ManualAreaLabel : MonoBehaviour
             staticOk = topDownController.IsUsingFixedStaticView();
         }
 
-        // Regla:
-        // - Si el manager dice TopDown → mostramos,
-        // - o si la cámara está en TopDown y (idealmente) fija.
         return managerSaysTopDown || (topDownOk && staticOk);
     }
 
@@ -157,49 +298,15 @@ public class ManualAreaLabel : MonoBehaviour
         if (nameText) nameText.gameObject.SetActive(visible);
         if (percentText) percentText.gameObject.SetActive(visible);
 
-        if (visible && cachedCanvas != null)
+        if (visible)
         {
-            // Ajustar escala para vista fija
-            var rt = cachedCanvas.transform as RectTransform;
-            if (rt != null) rt.localScale = Vector3.one * Mathf.Max(0.001f, mapScale);
-
-            // Asegurar cámara por si aún no estaba
-            EnsureCanvasCamera();
+            UpdateCanvasScale();
+            EnsureCanvasConsistency();
         }
 
         if (enableDebug) Debug.Log($"[ManualAreaLabel:{name}] SetVisibility({visible})");
     }
 
-    // ---------- Canvas ----------
-    void SetupChildCanvas()
-    {
-        cachedCanvas = GetComponentInChildren<Canvas>(true);
-        if (!cachedCanvas)
-        {
-            if (enableDebug) Debug.LogWarning($"[ManualAreaLabel:{name}] No se encontró Canvas hijo.");
-            return;
-        }
-        cachedCanvas.renderMode = RenderMode.WorldSpace;
-        cachedCanvas.worldCamera = Camera.main;  // puede ser null en primer frame (por eso EnsureCanvasCamera)
-        cachedCanvas.overrideSorting = true;
-        cachedCanvas.sortingOrder = canvasSortingOrder;
-
-        var p = transform.position;
-        transform.position = new Vector3(p.x, labelHeightY, p.z);
-    }
-
-    // --- NUEVO: asegurar cámara en el Canvas (especialmente en build) ---
-    void EnsureCanvasCamera()
-    {
-        if (!cachedCanvas) return;
-        if (cachedCanvas.renderMode == RenderMode.WorldSpace && cachedCanvas.worldCamera == null)
-        {
-            var cam = Camera.main;
-            if (cam != null) cachedCanvas.worldCamera = cam;
-        }
-    }
-
-    // ---------- Textos ----------
     void UpdateTexts()
     {
         UpdateName();
@@ -240,7 +347,6 @@ public class ManualAreaLabel : MonoBehaviour
         }
     }
 
-    // ---------- Datos ----------
     AreaManager.AreaData GetAreaData()
     {
         if (!areaManager) return null;
@@ -260,7 +366,6 @@ public class ManualAreaLabel : MonoBehaviour
         return upper;
     }
 
-    // Detección por jerarquía: busca el ancestro con nombre "Area_*"
     string DetectAreaKeyFromParents()
     {
         Transform t = transform;
@@ -269,10 +374,9 @@ public class ManualAreaLabel : MonoBehaviour
             string n = t.name.ToUpperInvariant();
             if (n.StartsWith("AREA_"))
             {
-                // e.g., Area_VCTL4 → VCTL4
                 string k = n.Substring(5);
                 k = k.Replace(" ", "").Replace("_", "");
-                if (enableDebug) Debug.Log($"[ManualAreaLabel:{name}] Detectado por jerarquía: {k}");
+                if (enableDebug) Debug.Log($"[ManualAreaLabel:{name}] Detectado: {k}");
                 return NormalizeAreaKey(k);
             }
             t = t.parent;
@@ -285,26 +389,20 @@ public class ManualAreaLabel : MonoBehaviour
     {
         if (enableDebug) Debug.Log($"[ManualAreaLabel:{name}] ForceRefresh()");
         UpdateTexts();
+        UpdateCanvasPosition();
     }
 
     public void SetTopDownVisibility(bool visible)
     {
         if (enableDebug) Debug.Log($"[ManualAreaLabel:{name}] SetTopDownVisibility({visible})");
-        // Solo se muestra si además la condición de ShouldShowTexts() lo permite
         bool finalVisible = visible && ShouldShowTexts();
         SetVisibility(finalVisible);
         if (finalVisible) UpdateTexts();
     }
 
-    // Siempre desregistrar (Editor y Build)
     void OnDestroy()
     {
         if (isRegistered) ManualLabelsManager.Unregister(this);
         isRegistered = false;
-    }
-
-    void OnValidate()
-    {
-        if (Application.isPlaying && currentlyVisible) UpdateTexts();
     }
 }
