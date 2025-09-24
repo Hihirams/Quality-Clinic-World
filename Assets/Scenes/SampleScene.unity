@@ -130,7 +130,7 @@ GameObject:
   - component: {fileID: 25700274}
   - component: {fileID: 25700276}
   - component: {fileID: 25700275}
-  m_Layer: 6
+  m_Layer: 0
   m_Name: PercentText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -266,7 +266,7 @@ GameObject:
   - component: {fileID: 74916125}
   - component: {fileID: 74916127}
   - component: {fileID: 74916126}
-  m_Layer: 6
+  m_Layer: 0
   m_Name: PercentText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -401,7 +401,7 @@ GameObject:
   m_Component:
   - component: {fileID: 86008699}
   - component: {fileID: 86008700}
-  m_Layer: 6
+  m_Layer: 0
   m_Name: Label_ATHONDA
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -509,6 +509,7 @@ MonoBehaviour:
   labelMuted: {r: 0.45, g: 0.45, b: 0.5, a: 1}
   pillBg: {r: 0.96, g: 0.96, b: 0.98, a: 1}
   showOnStart: 0
+  enableDebugMode: 1
   kpisData:
   - name: "Eficiencia Energ\xE9tica"
     value: 87.5
@@ -749,6 +750,10 @@ MonoBehaviour:
   useFixedStaticView: 1
   fixedTopDownPosition: {x: -34.9, y: 168.6, z: 20.3}
   fixedTopDownEuler: {x: 90, y: 0, z: 0}
+  focusPaddingPercent: 0.2
+  minFocusHeight: 25
+  maxFocusHeight: 220
+  returnSeconds: 0.6
 --- !u!1 &369288907
 GameObject:
   m_ObjectHideFlags: 0
@@ -761,7 +766,7 @@ GameObject:
   - component: {fileID: 369288911}
   - component: {fileID: 369288910}
   - component: {fileID: 369288909}
-  m_Layer: 6
+  m_Layer: 0
   m_Name: Canvas
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -999,7 +1004,7 @@ GameObject:
   m_Component:
   - component: {fileID: 710904096}
   - component: {fileID: 710904097}
-  m_Layer: 6
+  m_Layer: 0
   m_Name: Label_VBL1
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1060,7 +1065,7 @@ GameObject:
   m_Component:
   - component: {fileID: 745157065}
   - component: {fileID: 745157066}
-  m_Layer: 6
+  m_Layer: 0
   m_Name: Label_BUZZERL2
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1172,7 +1177,7 @@ GameObject:
   - component: {fileID: 852303366}
   - component: {fileID: 852303365}
   - component: {fileID: 852303364}
-  m_Layer: 6
+  m_Layer: 0
   m_Name: Canvas
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1274,7 +1279,7 @@ GameObject:
   - component: {fileID: 931295642}
   - component: {fileID: 931295644}
   - component: {fileID: 931295643}
-  m_Layer: 6
+  m_Layer: 0
   m_Name: NameText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1410,7 +1415,7 @@ GameObject:
   - component: {fileID: 952638171}
   - component: {fileID: 952638173}
   - component: {fileID: 952638172}
-  m_Layer: 6
+  m_Layer: 0
   m_Name: NameText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1598,7 +1603,7 @@ GameObject:
   - component: {fileID: 1212530495}
   - component: {fileID: 1212530494}
   - component: {fileID: 1212530493}
-  m_Layer: 6
+  m_Layer: 0
   m_Name: Canvas
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1700,7 +1705,7 @@ GameObject:
   - component: {fileID: 1331522747}
   - component: {fileID: 1331522749}
   - component: {fileID: 1331522748}
-  m_Layer: 6
+  m_Layer: 0
   m_Name: NameText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1836,7 +1841,7 @@ GameObject:
   - component: {fileID: 1432873342}
   - component: {fileID: 1432873344}
   - component: {fileID: 1432873343}
-  m_Layer: 6
+  m_Layer: 0
   m_Name: NameText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -2041,6 +2046,7 @@ MonoBehaviour:
   - {fileID: 2133819592}
   - {fileID: 2030710230}
   enableDebugMode: 1
+  preciseColliders: []
   enableTopDownView: 1
   fitPadding: 1.6
 --- !u!4 &1466288710
@@ -2070,7 +2076,7 @@ GameObject:
   - component: {fileID: 1536601152}
   - component: {fileID: 1536601151}
   - component: {fileID: 1536601150}
-  m_Layer: 6
+  m_Layer: 0
   m_Name: Canvas
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -2217,7 +2223,7 @@ GameObject:
   - component: {fileID: 1671697805}
   - component: {fileID: 1671697807}
   - component: {fileID: 1671697806}
-  m_Layer: 6
+  m_Layer: 0
   m_Name: PercentText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -2342,6 +2348,37 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1671697804}
   m_CullTransparentMesh: 1
+--- !u!1 &1697503497
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1697503498}
+  m_Layer: 0
+  m_Name: AreaPositionFixerV2
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1697503498
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1697503497}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 2.2116, y: 3.56096, z: -16.14628}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1824080501
 GameObject:
   m_ObjectHideFlags: 0
@@ -2431,7 +2468,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1876805562}
   - component: {fileID: 1876805563}
-  m_Layer: 6
+  m_Layer: 0
   m_Name: Label_VCTL4
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -2668,7 +2705,7 @@ GameObject:
   - component: {fileID: 1933580785}
   - component: {fileID: 1933580787}
   - component: {fileID: 1933580786}
-  m_Layer: 6
+  m_Layer: 0
   m_Name: PercentText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -2879,3 +2916,4 @@ SceneRoots:
   - {fileID: 1172693543}
   - {fileID: 1824080504}
   - {fileID: 1590221550}
+  - {fileID: 1697503498}

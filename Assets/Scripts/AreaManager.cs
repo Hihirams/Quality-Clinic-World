@@ -20,6 +20,11 @@ public class AreaManager : MonoBehaviour
     private Dictionary<string, AreaData> areaDataDict = new Dictionary<string, AreaData>();
     private Dictionary<string, Vector3> realAreaPositions = new Dictionary<string, Vector3>();
 
+    private readonly Dictionary<GameObject, Bounds> areaBoundsByObject = new Dictionary<GameObject, Bounds>();
+
+    [Header("Colliders Precisos")]
+    public List<PreciseColliderData> preciseColliders = new List<PreciseColliderData>();
+
     [System.Serializable]
     public class AreaData
     {
@@ -34,6 +39,16 @@ public class AreaManager : MonoBehaviour
         public float overallResult;
         public string status;
         public Color statusColor;
+    }
+
+    [System.Serializable]
+    public class PreciseColliderData
+    {
+        public string areaKey;
+        public Vector3 cubePosition; // Posicion exacta del cubo
+        public Vector3 cubeSize;     // Dimensiones del cubo
+        public string cubeChildName; // Nombre del cubo hijo
+        public float heightOffset = 1f; // Altura del collider
     }
 
     // ====== Integraci�n Top-Down ======
@@ -71,10 +86,26 @@ public class AreaManager : MonoBehaviour
             FindAreasAutomatically();
         }
 
+        SetupAreaLayers();
+
+        InitializePreciseColliders();
+
+        var fixer = FindFirstObjectByType<AreaPositionFixerV2>();
+        if (fixer != null)
+        {
+            fixer.FixAreaPositionsAndChildren();
+            if (enableDebugMode) Debug.Log("Posiciones de �reas corregidas antes de registrar");
+        }
+
         RegisterRealAreaPositions();
+
+        SetupCollidersByChildCubes();
+
+        SanitizeAreaColliders();          // normaliza tamaños/capa
+        DisableLabelRaycastsAndLayer();   // evita que labels bloqueen
+
         CreateAreaCards();
         dashboard.HideInterface();
-
         StartCoroutine(SetupTopDownLate());
     }
 
@@ -445,14 +476,14 @@ else
 
     void Update()
     {
-        // DEBUG: Mostrar qu� est� bajo el cursor
+        // DEBUG: Mostrar que hay bajo el cursor
         if (Input.GetMouseButtonDown(0))
         {
             var eventData = new PointerEventData(EventSystem.current) { position = Input.mousePosition };
             var results = new List<RaycastResult>();
             EventSystem.current.RaycastAll(eventData, results);
 
-            Debug.Log($"=== RAYCAST DEBUG ===");
+            Debug.Log("=== RAYCAST DEBUG ===");
             Debug.Log($"Elementos bajo cursor: {results.Count}");
             for (int i = 0; i < results.Count; i++)
             {
@@ -468,6 +499,16 @@ else
 
         if (Input.GetKeyDown(KeyCode.I) && enableDebugMode) ShowAreaDebugInfo();
         if (Input.GetKeyDown(KeyCode.Escape)) dashboard?.HideInterface();
+        if (Input.GetKeyDown(KeyCode.F8)) DebugCurrentPositions();
+        if (Input.GetKeyDown(KeyCode.F9)) SetupAreaLayers();
+if (Input.GetKeyDown(KeyCode.F10)) DetectRealCubeDimensions();
+// F11 ahora aplica los colliders “mejorados”
+if (Input.GetKeyDown(KeyCode.F11)) SetupMultipleCubeColliders();
+// F12 te deja comparar contra el método original por datos precalculados
+if (Input.GetKeyDown(KeyCode.F12)) SetupPreciseAreaColliders();
+// (Opcional) mueve el método por hijos a F6 si quieres conservarlo:
+// if (Input.GetKeyDown(KeyCode.F6)) SetupCollidersByChildCubes();
+
     }
 
     // En AreaManager.cs, reemplaza el m�todo IsPointerOverBlockingUI():
@@ -534,43 +575,443 @@ else
         return false;
     }
 
+
+    Bounds CalculateAreaBounds(GameObject areaObj)
+    {
+        var renderers = areaObj.GetComponentsInChildren<Renderer>();
+        if (renderers == null || renderers.Length == 0)
+            return new Bounds(areaObj.transform.position, new Vector3(4f, 2f, 4f));
+
+        Bounds bounds = renderers[0].bounds;
+        for (int i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
+        return bounds;
+    }
+
     void RegisterRealAreaPositions()
     {
         if (enableDebugMode) Debug.Log("=== REGISTRANDO POSICIONES REALES ===");
+        areaBoundsByObject.Clear();
         foreach (GameObject areaObj in areaObjects)
         {
             if (areaObj == null) continue;
             string areaKey = GetAreaKey(areaObj.name);
-            realAreaPositions[areaKey] = areaObj.transform.position;
-            if (enableDebugMode) Debug.Log($"? {areaObj.name} (Key: {areaKey}) - Posici�n REAL: {areaObj.transform.position}");
+            var bounds = CalculateAreaBounds(areaObj);
+            realAreaPositions[areaKey] = bounds.center;
+            areaBoundsByObject[areaObj] = bounds;
+            if (enableDebugMode) Debug.Log($"[Bounds] {areaObj.name} (Key: {areaKey}) -> center {bounds.center}");
         }
     }
 
-    void HandleAreaClickSimplified()
+
+
+void InitializePreciseColliders()
+{
+    preciseColliders.Clear();
+
+    // ATHONDA - Dimensiones detectadas
+    preciseColliders.Add(new PreciseColliderData
     {
-        Camera cam = Camera.main;
-        if (cam == null) return;
+        areaKey = "ATHONDA",
+        cubePosition = new Vector3(-58.15f, 1.5f, 109.06f),
+        cubeSize = new Vector3(42.50f, 3.00f, 24.60f),
+        cubeChildName = "Cube (8)",
+        heightOffset = 5f
+    });
 
-        Ray ray = cam.ScreenPointToRay(Input.mousePosition);
-        int areasMask = LayerMask.GetMask("Areas");           // ? Aseg�rate de asignar esta capa a tus �reas
-        RaycastHit[] hits = Physics.RaycastAll(ray, 750f, areasMask);
-        if (hits.Length == 0) return;
+    // VCTL4 - Dimensiones detectadas
+    preciseColliders.Add(new PreciseColliderData
+    {
+        areaKey = "VCTL4",
+        cubePosition = new Vector3(-1.85f, 1.5f, 24.32f),
+        cubeSize = new Vector3(32.00f, 3.00f, 43.23f),
+        cubeChildName = "Cube (52)",
+        heightOffset = 5f
+    });
 
-        Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
-        foreach (var hit in hits)
+    // BUZZERL2 - Dimensiones detectadas
+    preciseColliders.Add(new PreciseColliderData
+    {
+        areaKey = "BUZZERL2",
+        cubePosition = new Vector3(0.35f, 1.5f, -15.01f),
+        cubeSize = new Vector3(27.90f, 3.00f, 8.70f),
+        cubeChildName = "Cube (49)",
+        heightOffset = 5f
+    });
+
+    // VBL1 - cubo principal (60) - Dimensiones detectadas
+    preciseColliders.Add(new PreciseColliderData
+    {
+        areaKey = "VBL1",
+        cubePosition = new Vector3(-0.92f, 1.5f, 146.04f),
+        cubeSize = new Vector3(31.30f, 3.00f, 32.30f),
+        cubeChildName = "Cube (60)", // ignoramos (61) y (62) aquí
+        heightOffset = 5f
+    });
+
+    Debug.Log($"[PreciseColliders] Inicializados con dimensiones REALES: {preciseColliders.Count} colliders");
+}
+
+    void SetupPreciseAreaColliders()
+    {
+        foreach (GameObject areaObj in areaObjects)
         {
-            GameObject go = hit.collider.gameObject;
-            foreach (GameObject areaObj in areaObjects)
+            if (areaObj == null) continue;
+
+            string areaKey = GetAreaKey(areaObj.name);
+            PreciseColliderData colliderData = preciseColliders.Find(x => x.areaKey == areaKey);
+
+            if (colliderData == null)
             {
-                if (areaObj == go || IsChildOfArea(go, areaObj))
+                Debug.LogWarning($"[PreciseColliders] No se encontraron datos para {areaKey}");
+                continue;
+            }
+
+            var existingColliders = areaObj.GetComponents<Collider>();
+            for (int i = existingColliders.Length - 1; i >= 0; i--)
+            {
+                var existing = existingColliders[i];
+                if (existing == null) continue;
+                if (Application.isPlaying) Destroy(existing);
+                else DestroyImmediate(existing);
+            }
+
+            BoxCollider preciseCollider = areaObj.AddComponent<BoxCollider>();
+
+            Vector3 localCenter = areaObj.transform.InverseTransformPoint(colliderData.cubePosition);
+            preciseCollider.center = localCenter;
+
+            Vector3 localSize = colliderData.cubeSize;
+            localSize.y = colliderData.heightOffset;
+            preciseCollider.size = localSize;
+
+            preciseCollider.isTrigger = false;
+
+            Debug.Log($"[PreciseColliders] {areaKey}: Centro local {localCenter}, Tamano {localSize}");
+
+            Transform cubeChild = areaObj.transform.Find(colliderData.cubeChildName);
+            if (cubeChild == null)
+            {
+                Debug.LogWarning($"[PreciseColliders] Cubo hijo '{colliderData.cubeChildName}' no encontrado en {areaObj.name}");
+            }
+        }
+    }
+
+    // Método mejorado que soporta áreas con múltiples cubos (VBL1)
+void SetupMultipleCubeColliders()
+{
+    foreach (GameObject areaObj in areaObjects)
+    {
+        if (areaObj == null) continue;
+
+        string areaKey = GetAreaKey(areaObj.name);
+
+        // Remover colliders existentes del área
+        var existingColliders = areaObj.GetComponents<Collider>();
+        foreach (var col in existingColliders)
+        {
+            if (Application.isPlaying) Destroy(col);
+            else DestroyImmediate(col);
+        }
+
+        if (areaKey == "VBL1")
+        {
+            SetupVBL1MultipleColliders(areaObj);
+        }
+        else
+        {
+            SetupSingleCubeCollider(areaObj, areaKey);
+        }
+    }
+}
+
+void SetupVBL1MultipleColliders(GameObject areaObj)
+{
+    var vbl1Cubes = new[]
+    {
+        new { name = "Cube (60)", center = new Vector3(-0.92f, 1.5f, 146.04f), size = new Vector3(31.30f, 5f, 32.30f) },
+        new { name = "Cube (61)", center = new Vector3(-17.12f, 1.5f, 134.74f), size = new Vector3(20.60f, 5f, 9.80f) },
+        new { name = "Cube (62)", center = new Vector3(-17.12f, 1.5f, 159.44f), size = new Vector3(20.60f, 5f, 5.90f) }
+    };
+
+    foreach (var cubeData in vbl1Cubes)
+    {
+        GameObject colliderObj = new GameObject($"Collider_{cubeData.name}");
+        colliderObj.transform.SetParent(areaObj.transform, false);
+        colliderObj.transform.position = cubeData.center;
+
+        var box = colliderObj.AddComponent<BoxCollider>();
+        box.size = cubeData.size;
+        box.center = Vector3.zero;
+
+        int areasLayer = LayerMask.NameToLayer("Areas");
+        if (areasLayer != -1) colliderObj.layer = areasLayer;
+
+        Debug.Log($"[VBL1] Collider {cubeData.name}: Centro {cubeData.center}, Tamaño {cubeData.size}");
+    }
+}
+
+void SetupSingleCubeCollider(GameObject areaObj, string areaKey)
+{
+    PreciseColliderData colliderData = preciseColliders.Find(x => x.areaKey == areaKey);
+    if (colliderData == null)
+    {
+        Debug.LogWarning($"[SingleCube] No hay datos para {areaKey}");
+        return;
+    }
+
+    var box = areaObj.AddComponent<BoxCollider>();
+
+    Vector3 localCenter = areaObj.transform.InverseTransformPoint(colliderData.cubePosition);
+    box.center = localCenter;
+
+    Vector3 size = colliderData.cubeSize;
+    size.y = colliderData.heightOffset;
+
+    Vector3 lossyScale = areaObj.transform.lossyScale;
+    box.size = new Vector3(
+        size.x / Mathf.Max(0.001f, Mathf.Abs(lossyScale.x)),
+        size.y / Mathf.Max(0.001f, Mathf.Abs(lossyScale.y)),
+        size.z / Mathf.Max(0.001f, Mathf.Abs(lossyScale.z))
+    );
+
+    Debug.Log($"[SingleCube] {areaKey}: Centro local {box.center}, Tamaño {box.size}");
+}
+
+
+    void SetupCollidersByChildCubes()
+    {
+        foreach (GameObject areaObj in areaObjects)
+        {
+            if (areaObj == null) continue;
+
+            string areaKey = GetAreaKey(areaObj.name);
+            PreciseColliderData colliderData = preciseColliders.Find(x => x.areaKey == areaKey);
+
+            if (colliderData == null) continue;
+
+            Transform cubeChild = areaObj.transform.Find(colliderData.cubeChildName);
+            if (cubeChild == null)
+            {
+                Debug.LogWarning($"[ChildCube] No se encontro {colliderData.cubeChildName} en {areaObj.name}");
+                continue;
+            }
+
+            Renderer cubeRenderer = cubeChild.GetComponent<Renderer>();
+            if (cubeRenderer == null)
+            {
+                Debug.LogWarning($"[ChildCube] No hay Renderer en {colliderData.cubeChildName}");
+                continue;
+            }
+
+            var existingColliders = areaObj.GetComponents<Collider>();
+            for (int i = existingColliders.Length - 1; i >= 0; i--)
+            {
+                var existing = existingColliders[i];
+                if (existing == null) continue;
+                if (Application.isPlaying) Destroy(existing);
+                else DestroyImmediate(existing);
+            }
+
+            BoxCollider box = areaObj.AddComponent<BoxCollider>();
+            Bounds cubeBounds = cubeRenderer.bounds;
+
+            box.center = areaObj.transform.InverseTransformPoint(cubeBounds.center);
+
+            Vector3 size = cubeBounds.size;
+            size.y = Mathf.Max(size.y, colliderData.heightOffset);
+
+            Vector3 lossyScale = areaObj.transform.lossyScale;
+            box.size = new Vector3(
+                size.x / Mathf.Max(0.001f, Mathf.Abs(lossyScale.x)),
+                size.y / Mathf.Max(0.001f, Mathf.Abs(lossyScale.y)),
+                size.z / Mathf.Max(0.001f, Mathf.Abs(lossyScale.z))
+            );
+
+            Debug.Log($"[ChildCube] {areaKey}: Collider basado en {colliderData.cubeChildName}");
+            Debug.Log($"[ChildCube] Centro: {box.center}, Tamano: {box.size}");
+        }
+    }
+
+[ContextMenu("Detectar Dimensiones Reales")]
+void DetectRealCubeDimensions()
+{
+    Debug.Log("=== DETECTANDO DIMENSIONES REALES DE CUBOS ===");
+
+    foreach (GameObject areaObj in areaObjects)
+    {
+        if (areaObj == null) continue;
+
+        string areaKey = GetAreaKey(areaObj.name);
+        Debug.Log($"\n[Detect] Area: {areaObj.name} (Key: {areaKey})");
+
+        foreach (Transform child in areaObj.transform)
+        {
+            if (child.name.Contains("Cube"))
+            {
+                Renderer renderer = child.GetComponent<Renderer>();
+                if (renderer != null)
                 {
-                    OnAreaClicked(areaObj);
-                    return;
+                    Bounds bounds = renderer.bounds;
+                    Debug.Log($"[Detect] - {child.name}:");
+                    Debug.Log($"[Detect]   Posicion: {child.position}");
+                    Debug.Log($"[Detect]   Bounds Centro: {bounds.center}");
+                    Debug.Log($"[Detect]   Bounds Tamano: {bounds.size}");
+                    Debug.Log($"[Detect]   Transform Scale: {child.localScale}");
                 }
             }
         }
     }
 
+    Debug.Log("=== USA ESTOS DATOS PARA AJUSTAR preciseColliders ===");
+}
+
+void HandleAreaClickSimplified()
+{
+    Camera cam = Camera.main;
+    if (cam == null) return;
+
+    Ray ray = cam.ScreenPointToRay(Input.mousePosition);
+    int mask = LayerMask.GetMask("Areas");
+
+    // 1) COLLIDERS primero (preciso)
+    var hits = Physics.RaycastAll(ray, 2000f, mask);
+    if (hits.Length > 0)
+    {
+        Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+        foreach (var h in hits)
+        {
+            var area = FindAreaForGameObject(h.collider.gameObject);
+            if (area != null)
+            {
+                if (enableDebugMode) Debug.Log($"[PHY] Hit {h.collider.name} -> {area.name} d={h.distance:F2}");
+                OnAreaClicked(area);
+                return;
+            }
+        }
+    }
+
+    // 2) Fallback a BOUNDS por Renderers (por si falta algún collider)
+    if (areaBoundsByObject != null && areaBoundsByObject.Count > 0)
+    {
+        GameObject bestArea = null;
+        float bestDistance = float.MaxValue;
+
+        foreach (var kvp in areaBoundsByObject)
+        {
+            var bounds = kvp.Value;
+            if (bounds.IntersectRay(ray, out float d) && d < bestDistance)
+            {
+                bestDistance = d;
+                bestArea = kvp.Key;
+            }
+        }
+
+        if (bestArea != null)
+        {
+            if (enableDebugMode) Debug.Log($"[BND] {bestArea.name} d={bestDistance:F2}");
+            OnAreaClicked(bestArea);
+        }
+    }
+}
+
+void SanitizeAreaColliders()
+{
+    int areasLayer = LayerMask.NameToLayer("Areas");
+    foreach (var areaObj in areaObjects)
+    {
+        if (!areaObj) continue;
+
+        foreach (var col in areaObj.GetComponentsInChildren<Collider>(true))
+        {
+            col.isTrigger = false; // clic sólido
+            col.gameObject.layer = areasLayer;
+
+            var box = col as BoxCollider;
+            if (box != null)
+            {
+                var s = box.size;
+                // IMPORTANTE: nunca permitir tamaños negativos + altura mínima
+                box.size = new Vector3(Mathf.Abs(s.x), Mathf.Max(1f, Mathf.Abs(s.y)), Mathf.Abs(s.z));
+            }
+        }
+    }
+}
+
+void DisableLabelRaycastsAndLayer()
+{
+    // Desactivar raycast en todos los gráficos de labels y sacarlos de la layer "Areas"
+    var canvases = FindObjectsOfType<Canvas>(true);
+    foreach (var c in canvases)
+    {
+        if (c.GetComponentInParent<ManualAreaLabel>() != null)
+        {
+            c.gameObject.layer = LayerMask.NameToLayer("Default");
+            foreach (var g in c.GetComponentsInChildren<Graphic>(true))
+                g.raycastTarget = false;
+        }
+    }
+}
+
+
+    void SetupAreaLayers()
+    {
+        int areasLayer = LayerMask.NameToLayer("Areas");
+        if (areasLayer == -1)
+        {
+            Debug.LogError("Layer 'Areas' no existe. Configurala en Project Settings > Tags and Layers.");
+            return;
+        }
+
+        foreach (GameObject areaObj in areaObjects)
+        {
+            if (areaObj == null) continue;
+            foreach (Transform t in areaObj.GetComponentsInChildren<Transform>(true))
+            {
+                t.gameObject.layer = areasLayer;
+            }
+            if (enableDebugMode) Debug.Log($"[Areas] {areaObj.name} asignada a la layer 'Areas'");
+        }
+    }
+
+    GameObject FindAreaForGameObject(GameObject go)
+    {
+        if (go == null) return null;
+
+        foreach (GameObject areaObj in areaObjects)
+        {
+            if (areaObj == null) continue;
+            if (areaObj == go) return areaObj;
+        }
+
+        Transform current = go.transform;
+        while (current != null)
+        {
+            foreach (GameObject areaObj in areaObjects)
+            {
+                if (areaObj == null) continue;
+                if (current.gameObject == areaObj) return areaObj;
+            }
+            current = current.parent;
+        }
+
+        return null;
+    }
+
+    [ContextMenu("Debug Posiciones Actuales")]
+    void DebugCurrentPositions()
+    {
+        Debug.Log("=== POSICIONES ACTUALES DE AREAS ===");
+        foreach (GameObject areaObj in areaObjects)
+        {
+            if (areaObj == null) continue;
+            string areaKey = GetAreaKey(areaObj.name);
+            realAreaPositions.TryGetValue(areaKey, out var registeredPos);
+            Vector3 currentPos = areaObj.transform.position;
+            float diff = Vector3.Distance(currentPos, registeredPos);
+            string layerName = LayerMask.LayerToName(areaObj.layer);
+            Debug.Log($"- {areaObj.name} (Key: {areaKey})\n   Actual: {currentPos}\n   Registrada: {registeredPos}\n   Diferencia: {diff:F2}\n   Layer: {layerName}");
+        }
+    }
 
     void FindAreasAutomatically()
     {
@@ -682,8 +1123,8 @@ else
         {
             topDownController.ReturnToStaticHome(0.6f);
         }
-    }
 
+    }
 
     public AreaData GetAreaData(string areaKey) =>
         areaDataDict.ContainsKey(areaKey) ? areaDataDict[areaKey] : null;
