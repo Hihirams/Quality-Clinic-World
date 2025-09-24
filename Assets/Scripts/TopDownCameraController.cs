@@ -76,9 +76,13 @@ public class TopDownCameraController : MonoBehaviour
 
     void Update()
     {
+        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+            return; // No consumir input de cámara sobre la UI
+
         if (Input.GetKeyDown(toggleKey)) ToggleCameraMode();
         if (isTransitioning) UpdateTransition();
     }
+
 
     // ========= Reporte de estado (considera target cuando hay transición) =========
     public CameraMode GetCurrentMode()

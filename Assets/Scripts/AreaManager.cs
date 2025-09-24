@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -10,13 +10,13 @@ public class AreaManager : MonoBehaviour
     [Header("Referencias del Sistema")]
     public IndustrialDashboard dashboard;
 
-    [Header("Configuración de Áreas")]
+    [Header("Configuraci�n de �reas")]
     public List<GameObject> areaObjects = new List<GameObject>();
 
-    [Header("Configuración de Debug")]
+    [Header("Configuraci�n de Debug")]
     public bool enableDebugMode = true;
 
-    // ===== Datos por área =====
+    // ===== Datos por �rea =====
     private Dictionary<string, AreaData> areaDataDict = new Dictionary<string, AreaData>();
     private Dictionary<string, Vector3> realAreaPositions = new Dictionary<string, Vector3>();
 
@@ -36,7 +36,7 @@ public class AreaManager : MonoBehaviour
         public Color statusColor;
     }
 
-    // ====== Integración Top-Down ======
+    // ====== Integraci�n Top-Down ======
     [Header("Vista Top-Down")]
     public bool enableTopDownView = true;
     public float fitPadding = 2.0f;
@@ -45,7 +45,7 @@ public class AreaManager : MonoBehaviour
     private bool isInTopDownMode = false;
     private readonly List<AreaCard> areaCards = new List<AreaCard>();
 
-    // ====== Botón UI para alternar cámara ======
+    // ====== Bot�n UI para alternar c�mara ======
     private Button cameraToggleButton;
     private Text cameraToggleText;
 
@@ -58,10 +58,10 @@ public class AreaManager : MonoBehaviour
             dashboard = FindFirstObjectByType<IndustrialDashboard>();
             if (dashboard == null)
             {
-                Debug.LogError("No se encontró IndustrialDashboard en la escena");
+                Debug.LogError("No se encontr� IndustrialDashboard en la escena");
                 return;
             }
-            if (enableDebugMode) Debug.Log("Dashboard encontrado automáticamente");
+            if (enableDebugMode) Debug.Log("Dashboard encontrado autom�ticamente");
         }
 
         dashboard.ProvideDetail = (areaDisplayName, kpi) => GenerateDetailText(areaDisplayName, kpi);
@@ -118,7 +118,7 @@ public class AreaManager : MonoBehaviour
 
         topDownController.ApplySettings(settings);
 
-        if (enableDebugMode) Debug.Log($"[TopDown] Centro {plantCenter} | Tamaño {plantSize} | Padding {fitPadding}");
+        if (enableDebugMode) Debug.Log($"[TopDown] Centro {plantCenter} | Tama�o {plantSize} | Padding {fitPadding}");
     }
 
     void CollectAreaCardsAuto()
@@ -267,7 +267,7 @@ public class AreaManager : MonoBehaviour
         if (FindObjectOfType<EventSystem>() == null)
         {
             var es = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
-            Debug.Log("EventSystem creado automáticamente para UI.");
+            Debug.Log("EventSystem creado autom�ticamente para UI.");
         }
     }
 
@@ -290,7 +290,7 @@ public class AreaManager : MonoBehaviour
             // Notificar a los textos manuales
             NotifyManualLabelsUpdate();
 
-            if (enableDebugMode) Debug.Log("→ Vista Top-Down");
+            if (enableDebugMode) Debug.Log("? Vista Top-Down");
         }
 else
 {
@@ -298,10 +298,10 @@ else
     ApplyCardsMode(false);
     if (cameraToggleText) cameraToggleText.text = "Vista: Libre";
 
-    // 🔧 Notificar para ocultar todos los ManualAreaLabel al salir de MAPA
+    // ?? Notificar para ocultar todos los ManualAreaLabel al salir de MAPA
     NotifyManualLabelsUpdate();
 
-    if (enableDebugMode) Debug.Log("→ Vista Libre");
+    if (enableDebugMode) Debug.Log("? Vista Libre");
 }
 
     }
@@ -340,7 +340,7 @@ else
                 }
             }
 
-            if (enableDebugMode) Debug.Log($"AreaManager: No se encontró ManualLabelsManager, usando fallback para {manualLabels.Length} labels");
+            if (enableDebugMode) Debug.Log($"AreaManager: No se encontr� ManualLabelsManager, usando fallback para {manualLabels.Length} labels");
         }
     }
 
@@ -382,7 +382,7 @@ else
             var cameraController = Camera.main?.GetComponent<FreeCameraController>();
             if (cameraController != null) cameraController.FocusOnArea(areaObject.transform, 25f);
 
-            if (enableDebugMode) Debug.Log($"✅ Área seleccionada: {data.displayName}  @ {focusPosition}");
+            if (enableDebugMode) Debug.Log($"? �rea seleccionada: {data.displayName}  @ {focusPosition}");
         }
     }
 
@@ -391,7 +391,7 @@ else
         if (areaCard != null && areaCard.gameObject != null) OnAreaClicked(areaCard.gameObject);
     }
 
-    // ===== El resto de métodos permanecen igual =====
+    // ===== El resto de m�todos permanecen igual =====
     string GenerateDetailText(string areaDisplayName, KPIData kpi)
     {
         string areaKey = null;
@@ -407,44 +407,62 @@ else
         if (string.IsNullOrEmpty(areaKey) || !areaDataDict.ContainsKey(areaKey))
         {
             string unit = string.IsNullOrEmpty(kpi.unit) ? "%" : kpi.unit;
-            return "Detalle de " + kpi.name + "\nÁrea: " + areaDisplayName + "\nActual: " + kpi.value.ToString("F1") + unit;
+            return "Detalle de " + kpi.name + "\n�rea: " + areaDisplayName + "\nActual: " + kpi.value.ToString("F1") + unit;
         }
 
         var d = areaDataDict[areaKey];
         string n = (kpi.name ?? "").ToLowerInvariant();
 
         if (n.Contains("delivery"))
-            return "Delivery — " + d.displayName + "\n"
+            return "Delivery � " + d.displayName + "\n"
                  + "Actual: " + d.delivery.ToString("F1") + "%\n"
-                 + "• Órdenes planificadas: " + GetEstOrders(d.delivery) + "\n"
-                 + "• Incumplimientos: " + GetIncidences(d.delivery) + "\n"
-                 + "• Retraso promedio: " + GetDelayMins(d.delivery) + " min\n"
-                 + "Acción: asegurar JIT, balanceo de línea y seguimiento de transporte.";
+                 + "� �rdenes planificadas: " + GetEstOrders(d.delivery) + "\n"
+                 + "� Incumplimientos: " + GetIncidences(d.delivery) + "\n"
+                 + "� Retraso promedio: " + GetDelayMins(d.delivery) + " min\n"
+                 + "Acci�n: asegurar JIT, balanceo de l�nea y seguimiento de transporte.";
 
         if (n.Contains("quality"))
-            return "Quality — " + d.displayName + "\n"
+            return "Quality � " + d.displayName + "\n"
                  + "Actual: " + d.quality.ToString("F1") + "%\n"
-                 + "• PPM estimado: " + GetPpm(d.quality) + "\n"
-                 + "• Top defectos: " + GetTopDefects() + "\n"
-                 + "• Retrabajos/día: " + GetReworks(d.quality) + "\n"
-                 + "Acción: Gemba + 5-Why sobre el defecto principal; contención si PPM > objetivo.";
+                 + "� PPM estimado: " + GetPpm(d.quality) + "\n"
+                 + "� Top defectos: " + GetTopDefects() + "\n"
+                 + "� Retrabajos/d�a: " + GetReworks(d.quality) + "\n"
+                 + "Acci�n: Gemba + 5-Why sobre el defecto principal; contenci�n si PPM > objetivo.";
 
         // ... resto de casos similares
 
         string unit2 = string.IsNullOrEmpty(kpi.unit) ? "%" : kpi.unit;
-        return "Detalle de " + kpi.name + "\nÁrea: " + d.displayName + "\nActual: " + kpi.value.ToString("F1") + unit2;
+        return "Detalle de " + kpi.name + "\n�rea: " + d.displayName + "\nActual: " + kpi.value.ToString("F1") + unit2;
     }
 
-    // Métodos auxiliares
+    // M�todos auxiliares
     int GetEstOrders(float delivery) => Mathf.Clamp(Mathf.RoundToInt(50f * (delivery / 100f) + 5), 5, 60);
     int GetIncidences(float delivery) => delivery < 50 ? 5 : (delivery < 80 ? 2 : 0);
     int GetDelayMins(float delivery) => delivery < 50 ? 35 : (delivery < 80 ? 12 : 3);
     int GetPpm(float quality) => Mathf.Clamp(Mathf.RoundToInt((100f - quality) * 120f), 0, 12000);
-    string GetTopDefects() => "Faltante, Cosmético, Torque";
+    string GetTopDefects() => "Faltante, Cosm�tico, Torque";
     int GetReworks(float quality) => Mathf.Clamp(Mathf.RoundToInt((100f - quality) / 5f), 0, 6);
 
     void Update()
     {
+        // DEBUG: Mostrar qu� est� bajo el cursor
+        if (Input.GetMouseButtonDown(0))
+        {
+            var eventData = new PointerEventData(EventSystem.current) { position = Input.mousePosition };
+            var results = new List<RaycastResult>();
+            EventSystem.current.RaycastAll(eventData, results);
+
+            Debug.Log($"=== RAYCAST DEBUG ===");
+            Debug.Log($"Elementos bajo cursor: {results.Count}");
+            for (int i = 0; i < results.Count; i++)
+            {
+                var r = results[i];
+                var hasButton = r.gameObject.GetComponentInParent<Button>() != null;
+                var raycastTarget = r.gameObject.GetComponent<Graphic>()?.raycastTarget ?? false;
+                Debug.Log($"  [{i}] {r.gameObject.name} | Button: {hasButton} | RaycastTarget: {raycastTarget}");
+            }
+        }
+
         if (Input.GetMouseButtonDown(0) && !IsPointerOverBlockingUI())
             HandleAreaClickSimplified();
 
@@ -452,25 +470,67 @@ else
         if (Input.GetKeyDown(KeyCode.Escape)) dashboard?.HideInterface();
     }
 
+    // En AreaManager.cs, reemplaza el m�todo IsPointerOverBlockingUI():
+
     bool IsPointerOverBlockingUI()
     {
         if (EventSystem.current == null) return false;
 
-        var eventData = new PointerEventData(EventSystem.current)
-        {
-            position = Input.mousePosition
-        };
-        var raycastResults = new List<RaycastResult>();
-        EventSystem.current.RaycastAll(eventData, raycastResults);
+        var eventData = new PointerEventData(EventSystem.current) { position = Input.mousePosition };
+        var results = new List<RaycastResult>();
+        EventSystem.current.RaycastAll(eventData, results);
 
-        foreach (var rr in raycastResults)
+        // Si HAY cualquier Graphic con raycastTarget activo bajo el cursor, bloquear
+        foreach (var r in results)
         {
-            var canvas = rr.gameObject.GetComponentInParent<Canvas>();
-            if (canvas == null) continue;
+            var graphic = r.gameObject.GetComponentInParent<Graphic>();
+            if (graphic != null && graphic.raycastTarget) return true;
+            if (r.gameObject.GetComponentInParent<Button>() != null) return true;
+            if (r.gameObject.GetComponentInParent<Scrollbar>() != null) return true;
+        }
+        return false;
+    }
 
-            if (canvas.renderMode == RenderMode.ScreenSpaceOverlay || canvas.renderMode == RenderMode.ScreenSpaceCamera)
+
+    bool ShouldBlockClick(GameObject uiElement)
+    {
+        // Nombres de elementos que S� deben bloquear clicks al mundo 3D
+        string[] blockingElements = {
+        "CloseButton",
+        "KPIs_Button",
+        "Predicciones_Button",
+        "Btn_ToggleCamera",
+        "CloseDetail",
+        "VerticalScrollbar"
+    };
+
+        // Si es uno de los elementos bloqueantes
+        foreach (string blockingName in blockingElements)
+        {
+            if (uiElement.name.Contains(blockingName))
                 return true;
         }
+
+        // Si es el panel principal pero NO es contenido interno
+        if (uiElement.name == "MainPanel")
+            return true;
+
+        // Si es el panel de detalle pero NO es contenido interno
+        if (uiElement.name == "DetailPanel")
+            return true;
+
+        // Los botones "Ver detalle" NO deben bloquear (para que pasen al 3D)
+        if (uiElement.name.Contains("Btn_VerDetalle"))
+            return false;
+
+        // Contenido interno del dashboard NO debe bloquear
+        if (uiElement.name.Contains("KPI_") ||
+            uiElement.name.Contains("Content") ||
+            uiElement.name.Contains("ProgressBar") ||
+            uiElement.name.Contains("Text") ||
+            uiElement.name.Contains("AlertBox"))
+            return false;
+
         return false;
     }
 
@@ -482,7 +542,7 @@ else
             if (areaObj == null) continue;
             string areaKey = GetAreaKey(areaObj.name);
             realAreaPositions[areaKey] = areaObj.transform.position;
-            if (enableDebugMode) Debug.Log($"✓ {areaObj.name} (Key: {areaKey}) - Posición REAL: {areaObj.transform.position}");
+            if (enableDebugMode) Debug.Log($"? {areaObj.name} (Key: {areaKey}) - Posici�n REAL: {areaObj.transform.position}");
         }
     }
 
@@ -492,7 +552,8 @@ else
         if (cam == null) return;
 
         Ray ray = cam.ScreenPointToRay(Input.mousePosition);
-        RaycastHit[] hits = Physics.RaycastAll(ray, 750f);
+        int areasMask = LayerMask.GetMask("Areas");           // ? Aseg�rate de asignar esta capa a tus �reas
+        RaycastHit[] hits = Physics.RaycastAll(ray, 750f, areasMask);
         if (hits.Length == 0) return;
 
         Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
@@ -510,6 +571,7 @@ else
         }
     }
 
+
     void FindAreasAutomatically()
     {
         areaObjects.Clear();
@@ -517,7 +579,7 @@ else
         foreach (string n in names)
         {
             var found = GameObject.Find(n);
-            if (found != null) { areaObjects.Add(found); if (enableDebugMode) Debug.Log($"✓ Área encontrada: {found.name}"); }
+            if (found != null) { areaObjects.Add(found); if (enableDebugMode) Debug.Log($"? �rea encontrada: {found.name}"); }
         }
     }
 
@@ -539,7 +601,7 @@ else
             else
             {
                 card.areaName = areaObj.name;
-                Debug.LogWarning($"No se encontraron datos para el área: {areaObj.name}");
+                Debug.LogWarning($"No se encontraron datos para el �rea: {areaObj.name}");
             }
 
             SetupAreaCollider(areaObj);
@@ -571,12 +633,12 @@ else
     List<string> GeneratePredictions(AreaData d)
     {
         List<string> p = new List<string>();
-        if (d.delivery < 50) p.Add("🚨 CRÍTICO: Problemas severos de entrega detectados");
-        else if (d.delivery < 80) p.Add("⚠️ Delivery bajo riesgo - Optimización recomendada");
-        if (d.quality < 70) p.Add("🔧 Control de calidad requiere intervención");
-        if (d.trainingDNA < 70) p.Add("📚 Personal requiere capacitación urgente");
-        if (d.overallResult < 50) p.Add("🚨 ZONA ROJA: Intervención ejecutiva inmediata");
-        else if (d.overallResult >= 90) p.Add("🏆 ZONA OPTIMUS: Benchmark para otras áreas");
+        if (d.delivery < 50) p.Add("?? CR�TICO: Problemas severos de entrega detectados");
+        else if (d.delivery < 80) p.Add("?? Delivery bajo riesgo - Optimizaci�n recomendada");
+        if (d.quality < 70) p.Add("?? Control de calidad requiere intervenci�n");
+        if (d.trainingDNA < 70) p.Add("?? Personal requiere capacitaci�n urgente");
+        if (d.overallResult < 50) p.Add("?? ZONA ROJA: Intervenci�n ejecutiva inmediata");
+        else if (d.overallResult >= 90) p.Add("?? ZONA OPTIMUS: Benchmark para otras �reas");
         return p;
     }
 
@@ -598,24 +660,24 @@ else
             box.size = Vector3.one * 10f;
             box.center = Vector3.up * 2.5f;
         }
-        Debug.Log($"✓ BoxCollider agregado a: {areaObj.name}");
+        Debug.Log($"? BoxCollider agregado a: {areaObj.name}");
     }
 
     void ShowAreaDebugInfo()
     {
-        Debug.Log("=== INFO DE ÁREAS ===");
+        Debug.Log("=== INFO DE �REAS ===");
         foreach (GameObject areaObj in areaObjects)
         {
             if (areaObj == null) continue;
             string key = GetAreaKey(areaObj.name);
-            Debug.Log($"Área: {areaObj.name} (Key: {key}) - Posición: {areaObj.transform.position}");
+            Debug.Log($"�rea: {areaObj.name} (Key: {key}) - Posici�n: {areaObj.transform.position}");
         }
     }
 
     public void CloseDashboard()
     {
         dashboard?.HideInterface();
-        // Al cerrar dashboard, regresar la cámara a la vista estática original (home)
+        // Al cerrar dashboard, regresar la c�mara a la vista est�tica original (home)
         if (isInTopDownMode && topDownController != null)
         {
             topDownController.ReturnToStaticHome(0.6f);
@@ -691,3 +753,7 @@ else
         };
     }
 }
+
+
+
+

@@ -43,6 +43,7 @@ public class IndustrialDashboard : MonoBehaviour
 
     [Header("Configuración de Comportamiento")]
     public bool showOnStart = false;
+    public bool enableDebugMode = true;
 
     public event System.Action OnHidden;
 
@@ -224,7 +225,10 @@ public class IndustrialDashboard : MonoBehaviour
             scaler.referenceResolution = new Vector2(1920, 1080);
             scaler.matchWidthOrHeight = 0.5f;
 
-            canvasObj.AddComponent<GraphicRaycaster>();
+            var graphicRaycaster = canvasObj.AddComponent<GraphicRaycaster>();
+            // CRÍTICO: Hacer que solo intercepte elementos específicos
+            graphicRaycaster.blockingObjects = GraphicRaycaster.BlockingObjects.None;
+
             Debug.Log("✓ Canvas principal creado automáticamente (UI_Canvas)");
         }
 
@@ -251,9 +255,11 @@ public class IndustrialDashboard : MonoBehaviour
         mainPanel = CreateUIGameObject("MainPanel", mainCanvas.transform);
 
         Image panelImage = mainPanel.AddComponent<Image>();
-        panelImage.color = panelGrayColor; // Fondo gris
-        panelImage.sprite = veryRoundedSprite; // Sprite más redondeado
+        panelImage.color = panelGrayColor;
+        panelImage.sprite = veryRoundedSprite;
         panelImage.type = Image.Type.Sliced;
+        // CRÍTICO: El panel de fondo NO debe interceptar clicks
+        panelImage.raycastTarget = false;
 
         RectTransform panelRect = mainPanel.GetComponent<RectTransform>();
         panelRect.sizeDelta = new Vector2(540, 700);
@@ -473,28 +479,41 @@ public class IndustrialDashboard : MonoBehaviour
         valueText.alignment = TextAnchor.MiddleRight;
         valueObj.GetComponent<RectTransform>().sizeDelta = new Vector2(44, 28);
 
-        // Botón "Ver detalle"
+        // En IndustrialDashboard.cs, en el método CreateModernKPIElement, 
+        // reemplaza la sección del botón "Ver detalle":
+
+        // Botón detalle - AGREGAR DESPUÉS DE LA LÍNEA EXISTENTE
         GameObject detailBtnObj = CreateUIGameObject("Btn_VerDetalle", kpiElement.transform);
-        Button detailBtn = detailBtnObj.AddComponent<Button>();
-        Image detailBtnImg = detailBtnObj.AddComponent<Image>();
-        detailBtnImg.color = lightGrayColor;
-        detailBtnImg.sprite = roundedRectSprite;
-        detailBtnImg.type = Image.Type.Sliced;
+        var detailBtn = detailBtnObj.AddComponent<Button>();
+        var detailImg = detailBtnObj.AddComponent<Image>();
+        detailImg.sprite = roundedRectSprite;
+        detailImg.type = Image.Type.Sliced;
+        detailImg.color = lightGrayColor;
+        detailImg.raycastTarget = true;     // ← importante
 
-        RectTransform detailBtnRect = detailBtnObj.GetComponent<RectTransform>();
-        detailBtnRect.sizeDelta = new Vector2(96, 28);
+        detailBtnObj.GetComponent<RectTransform>().sizeDelta = new Vector2(96, 28);
 
-        GameObject detailTxtObj = CreateUIGameObject("Text", detailBtnObj.transform);
-        Text detailTxt = detailTxtObj.AddComponent<Text>();
+        var detailTxtObj = CreateUIGameObject("Text", detailBtnObj.transform);
+        var detailTxt = detailTxtObj.AddComponent<Text>();
         detailTxt.text = "Ver detalle ›";
         detailTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         detailTxt.fontSize = 12;
         detailTxt.color = textDarkColor;
         detailTxt.alignment = TextAnchor.MiddleCenter;
+        detailTxt.raycastTarget = false;    // ← el texto NO intercepta clics
         detailTxtObj.GetComponent<RectTransform>().sizeDelta = new Vector2(96, 28);
 
+        // Hover (ya lo tienes implementado):
         AddModernButtonHoverEffects(detailBtn, lightGrayColor);
-        detailBtn.onClick.AddListener(() => ShowKPIDetail(kpi));
+
+        // Click handler
+        detailBtn.onClick.AddListener(() => {
+            if (enableDebugMode) Debug.Log($"Click en Ver detalle para: {kpi.name}");
+            ShowKPIDetail(kpi);
+        });
+
+        // CRÍTICO: Hacer que el botón NO bloquee clicks al mundo 3D
+        // (esto lo maneja el método IsPointerOverBlockingUI actualizado)
     }
 
     void CreateOverallResultElement(GameObject parent)
@@ -752,16 +771,56 @@ public class IndustrialDashboard : MonoBehaviour
         }
     }
 
+    // En IndustrialDashboard.cs, reemplaza el método AddModernButtonHoverEffects:
+
     void AddModernButtonHoverEffects(Button button, Color originalColor)
     {
+        if (button == null) return;
+
+        // Asegurar que tenga sprite (crítico para el hover)
+        Image buttonImage = button.GetComponent<Image>();
+        if (buttonImage != null && buttonImage.sprite == null)
+        {
+            buttonImage.sprite = roundedRectSprite;
+            buttonImage.type = Image.Type.Sliced;
+        }
+
         ColorBlock colors = button.colors;
         colors.normalColor = originalColor;
-        colors.highlightedColor = new Color(originalColor.r * 0.9f, originalColor.g * 0.9f, originalColor.b * 0.9f, 1f);
-        colors.pressedColor = new Color(originalColor.r * 0.8f, originalColor.g * 0.8f, originalColor.b * 0.8f, 1f);
-        colors.disabledColor = new Color(originalColor.r * 0.5f, originalColor.g * 0.5f, originalColor.b * 0.5f, 0.5f);
+
+        // Hover más visible
+        colors.highlightedColor = new Color(
+            originalColor.r * 0.85f,
+            originalColor.g * 0.85f,
+            originalColor.b * 0.85f,
+            1f
+        );
+
+        // Click más oscuro
+        colors.pressedColor = new Color(
+            originalColor.r * 0.70f,
+            originalColor.g * 0.70f,
+            originalColor.b * 0.70f,
+            1f
+        );
+
+        colors.disabledColor = new Color(
+            originalColor.r * 0.5f,
+            originalColor.g * 0.5f,
+            originalColor.b * 0.5f,
+            0.5f
+        );
+
         colors.colorMultiplier = 1f;
-        colors.fadeDuration = 0.1f;
+        colors.fadeDuration = 0.15f; // Transición más suave
+
         button.colors = colors;
+
+        // Asegurar que sea interactuable
+        button.interactable = true;
+
+        if (enableDebugMode)
+            Debug.Log($"Hover effects aplicados a botón: {button.name}");
     }
 
     Color GetModernProgressBarColor(float value)

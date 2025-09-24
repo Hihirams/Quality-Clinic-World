@@ -1,6 +1,7 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 #if TMP_PRESENT || TEXTMESHPRO_PRESENT
 using TMPro;
 #endif
@@ -14,8 +15,8 @@ public class AreaOverlayPainter : MonoBehaviour
     [SerializeField] private float overlayHeight = 0.02f;           // Evitar z-fighting
     [SerializeField] private float padding = 0f;                    // (para Quad)
 
-    [Header("Textos automáticos del Painter")]
-    [Tooltip("Oculta SOLO los textos automáticos del painter en vista MAPA (Top-Down fija). No afecta tus ManualAreaLabel.")]
+    [Header("Textos autom�ticos del Painter")]
+    [Tooltip("Oculta SOLO los textos autom�ticos del painter en vista MAPA (Top-Down fija). No afecta tus ManualAreaLabel.")]
     [SerializeField] private bool hideTextsInStaticTopDown = true;
 
     [Header("References")]
@@ -27,10 +28,10 @@ public class AreaOverlayPainter : MonoBehaviour
     // Estado
     private bool isTopDownMode = false;
 
-    // Datos por área
+    // Datos por �rea
     private readonly Dictionary<GameObject, AreaOverlayData> areaOverlays = new();
 
-    // --- Contenedor por área ---
+    // --- Contenedor por �rea ---
     [System.Serializable]
     public class AreaOverlayData
     {
@@ -43,7 +44,7 @@ public class AreaOverlayPainter : MonoBehaviour
     {
         if (areaManager == null) areaManager = FindObjectOfType<AreaManager>();
         InitializeOverlays();
-        SetOverlaysActive(false); // por defecto oculto hasta entrar a MAPA si así lo prefieres
+        SetOverlaysActive(false); // por defecto oculto hasta entrar a MAPA si as� lo prefieres
     }
 
     // === API llamado desde TopDownCameraController / AreaManager ===
@@ -55,13 +56,13 @@ public class AreaOverlayPainter : MonoBehaviour
         SetOverlaysActive(isTopDownMode);
         if (isTopDownMode) RefreshOverlaysForTopDown();
 
-        // En MAPA ocultamos SOLO textos automáticos del painter (si existieran)
+        // En MAPA ocultamos SOLO textos autom�ticos del painter (si existieran)
         bool isStaticMap = IsStaticTopDownView();
         if (hideTextsInStaticTopDown && isStaticMap) SetOverlayTextsEnabled(false);
         else SetOverlayTextsEnabled(true);
     }
 
-    // =================== Construcción de overlays ===================
+    // =================== Construcci�n de overlays ===================
 
     void InitializeOverlays()
     {
@@ -83,7 +84,7 @@ public class AreaOverlayPainter : MonoBehaviour
         else BuildQuadOverlay(area, od);
 
         SetupClick(od, area);
-        UpdateOverlayColorFromManager(od, area); // color inicial según status
+        UpdateOverlayColorFromManager(od, area); // color inicial seg�n status
 
         areaOverlays[area] = od;
     }
@@ -227,7 +228,7 @@ public class AreaOverlayPainter : MonoBehaviour
 
     void SetupClick(AreaOverlayData od, GameObject area)
     {
-        // Usa un collider del propio área (o crea uno si no hay) para propagar clicks
+        // Usa un collider del propio �rea (o crea uno si no hay) para propagar clicks
         var target = area;
         var col = target.GetComponent<Collider>();
         if (!col)
@@ -261,7 +262,7 @@ public class AreaOverlayPainter : MonoBehaviour
     }
 
     /// Oculta/Muestra SOLO componentes de texto bajo este GameObject (por si
-    /// quedó algún texto automático de versiones previas del painter).
+    /// qued� alg�n texto autom�tico de versiones previas del painter).
     private void SetOverlayTextsEnabled(bool enabled)
     {
         int count = 0;
@@ -305,7 +306,14 @@ public class AreaOverlayClick : MonoBehaviour
 
     void OnMouseDown()
     {
+        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+            return;
+
         if (overlayPainter != null && targetArea != null)
             overlayPainter.HandleAreaClick(targetArea);
     }
 }
+
+
+
+
