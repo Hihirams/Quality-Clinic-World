@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using TMPro;
+using static TMPro.ShaderUtilities;
 
 /// <summary>
 /// Textos manuales que se ven solo en la vista MAPA (top-down fija).
@@ -7,6 +8,19 @@ using TMPro;
 /// </summary>
 public class ManualAreaLabel : MonoBehaviour
 {
+
+// === Nuevo: control de estilo ===
+[Header("Estilo (opcional)")]
+[Tooltip("Si está activo, NO se sobreescriben Outline/Underlay/Color en runtime.")]
+public bool respectInspectorTextSettings = true;
+
+[Tooltip("Preset Material de TMP para aplicar a ambos textos (opcional).")]
+public Material sharedTMPPreset;
+
+[Tooltip("Aplica sharedTMPPreset una sola vez en Start.")]
+public bool applyPresetOnStart = true;
+
+
     [Header("Referencias de Textos")]
     [Tooltip("TextMeshProUGUI del nombre")]
     public TextMeshProUGUI nameText;
@@ -26,7 +40,13 @@ public class ManualAreaLabel : MonoBehaviour
 
     [Header("Colores de Texto")]
     [Tooltip("Forzar texto negro")]
-    public bool keepTextBlack = true;
+    public bool keepTextBlack = false; // ← estaba true
+
+[Header("Estilo en Top-Down Estático")]
+public bool whiteWithBlackOutlineInStatic = true;
+[Range(0f, 1f)] public float outlineWidthStatic = 0.18f; // 0.12–0.25 recomendado
+public Color outlineColorStatic = new Color(0,0,0,0.95f);
+
 
     [Header("Canvas Settings - CLAVE PARA CONSISTENCIA")]
     [Tooltip("Altura Y fija para el label")]
@@ -102,6 +122,13 @@ public class ManualAreaLabel : MonoBehaviour
         // Setup crítico del canvas
         SetupCanvasForConsistency();
 
+        // Aplicar preset opcional una sola vez
+if (applyPresetOnStart && sharedTMPPreset != null) {
+    if (nameText) nameText.fontSharedMaterial = sharedTMPPreset;
+    if (percentText) percentText.fontSharedMaterial = sharedTMPPreset;
+}
+
+
         // Colores iniciales
         if (keepTextBlack)
         {
@@ -134,9 +161,13 @@ public class ManualAreaLabel : MonoBehaviour
         {
             currentlyVisible = shouldShow;
             SetVisibility(currentlyVisible);
-            if (currentlyVisible) UpdateTexts();
+            if (currentlyVisible)
+            
+            UpdateTexts();
+            ApplyStaticStyleIfNeeded();
 
             if (enableDebug) Debug.Log($"[ManualAreaLabel:{name}] Visibilidad: {shouldShow}");
+
         }
 
         // Actualizar datos si cambian
@@ -156,6 +187,34 @@ public class ManualAreaLabel : MonoBehaviour
             UpdateCanvasPosition();
         }
     }
+
+
+void ApplyStaticStyleIfNeeded()
+{
+    // Si quieres respetar el Inspector o ya usas preset, no toques nada en runtime
+    if (respectInspectorTextSettings || sharedTMPPreset != null) return;
+
+    bool isStaticTopDown = ShouldShowTexts();
+    if (isStaticTopDown)
+    {
+        if (nameText)    SetTMPWhiteWithOutline(nameText);
+        if (percentText) SetTMPWhiteWithOutline(percentText);
+    }
+}
+
+
+void SetTMPWhiteWithOutline(TextMeshProUGUI tmp)
+{
+    // Solo se usa cuando NO respetas el Inspector y NO hay preset
+    tmp.color = Color.white;
+    var mat = tmp.fontMaterial; // instancia runtime
+    if (mat != null)
+    {
+        mat.SetFloat(ID_OutlineWidth, outlineWidthStatic);
+        mat.SetColor(ID_OutlineColor, outlineColorStatic);
+        if (mat.HasProperty(ID_FaceDilate)) mat.SetFloat(ID_FaceDilate, 0.0f);
+    }
+}
 
     // ========== MÉTODOS CORREGIDOS ==========
 
@@ -302,6 +361,7 @@ public class ManualAreaLabel : MonoBehaviour
         {
             UpdateCanvasScale();
             EnsureCanvasConsistency();
+            ApplyStaticStyleIfNeeded();
         }
 
         if (enableDebug) Debug.Log($"[ManualAreaLabel:{name}] SetVisibility({visible})");
@@ -327,7 +387,7 @@ public class ManualAreaLabel : MonoBehaviour
             if (data != null) nameText.text = data.displayName;
         }
 
-        if (keepTextBlack) nameText.color = Color.black;
+        if (keepTextBlack && !ShouldShowTexts()) nameText.color = Color.black;
     }
 
     void UpdatePercentage()
@@ -338,12 +398,12 @@ public class ManualAreaLabel : MonoBehaviour
         if (data != null)
         {
             percentText.text = $"{data.overallResult:F0}%";
-            if (keepTextBlack) percentText.color = Color.black;
+            if (keepTextBlack && !ShouldShowTexts()) percentText.color = Color.black;
         }
         else
         {
             percentText.text = "0%";
-            if (keepTextBlack) percentText.color = Color.black;
+            if (keepTextBlack && !ShouldShowTexts()) percentText.color = Color.black;
         }
     }
 

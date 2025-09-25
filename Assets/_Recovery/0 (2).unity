@@ -213,7 +213,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 256
   m_textAlignment: 65535
-  m_characterSpacing: 3.23
+  m_characterSpacing: 0
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -339,8 +339,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 8.61
-  m_fontSizeBase: 8.61
+  m_fontSize: 11
+  m_fontSizeBase: 11
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -349,7 +349,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 256
   m_textAlignment: 65535
-  m_characterSpacing: 2.71
+  m_characterSpacing: 0
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -436,9 +436,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 86c1571b51b302c4998f6cc112002581, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ManualAreaLabel
-  respectInspectorTextSettings: 1
-  sharedTMPPreset: {fileID: 0}
-  applyPresetOnStart: 1
   nameText: {fileID: 1331522748}
   percentText: {fileID: 1671697806}
   areaKey: ATHONDA
@@ -1045,16 +1042,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 86c1571b51b302c4998f6cc112002581, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ManualAreaLabel
-  respectInspectorTextSettings: 1
-  sharedTMPPreset: {fileID: 0}
-  applyPresetOnStart: 1
   nameText: {fileID: 931295643}
   percentText: {fileID: 74916126}
   areaKey: VBL1
   useCustomName: 0
   customNameText: VBL1
   onlyShowInStaticTopDown: 1
-  keepTextBlack: 0
+  keepTextBlack: 1
   whiteWithBlackOutlineInStatic: 1
   outlineWidthStatic: 0.18
   outlineColorStatic: {r: 0, g: 0, b: 0, a: 0.95}
@@ -1112,16 +1106,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 86c1571b51b302c4998f6cc112002581, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ManualAreaLabel
-  respectInspectorTextSettings: 1
-  sharedTMPPreset: {fileID: 0}
-  applyPresetOnStart: 1
   nameText: {fileID: 952638172}
   percentText: {fileID: 25700275}
   areaKey: BUZZERL2
   useCustomName: 0
   customNameText: BUZZERL2
   onlyShowInStaticTopDown: 1
-  keepTextBlack: 0
+  keepTextBlack: 1
   whiteWithBlackOutlineInStatic: 1
   outlineWidthStatic: 0.18
   outlineColorStatic: {r: 0, g: 0, b: 0, a: 0.95}
@@ -1312,7 +1303,7 @@ RectTransform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 931295641}
   m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: 0, y: 0, z: -23.28}
+  m_LocalPosition: {x: 0, y: 0, z: -21.03}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1370,8 +1361,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 7
-  m_fontSizeBase: 7
+  m_fontSize: 9
+  m_fontSizeBase: 9
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -1516,7 +1507,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 256
   m_textAlignment: 65535
-  m_characterSpacing: 5.19
+  m_characterSpacing: 0
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -1591,12 +1582,12 @@ MonoBehaviour:
   appleDarkGreen: {r: 0.15, g: 0.65, b: 0.25, a: 1}
   appleLightGreen: {r: 0.45, g: 0.75, b: 0.35, a: 1}
   appleYellow: {r: 0.85, g: 0.65, b: 0.15, a: 1}
-  appleRed: {r: 0.735849, g: 0.19784619, b: 0.19784619, a: 1}
-  overlayAlpha: 1
+  appleRed: {r: 0.75, g: 0.25, b: 0.25, a: 1}
+  overlayAlpha: 0.35
   useExactMeshOverlay: 1
   overlayMaterial: {fileID: 2100000, guid: d672dad365ed7b64ca28efc6365bfcc6, type: 2}
-  overlayHeight: 0.01
-  padding: 5
+  overlayHeight: 0.02
+  padding: 0
   hideTextsInStaticTopDown: 1
   areaManager: {fileID: 1466288709}
   enableDebug: 0
@@ -1744,7 +1735,7 @@ RectTransform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1331522746}
   m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: 0, y: 0, z: -4.4}
+  m_LocalPosition: {x: 0, y: 0, z: -1.38}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1802,8 +1793,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 6
-  m_fontSizeBase: 6
+  m_fontSize: 7.7
+  m_fontSizeBase: 7.7
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -1880,7 +1871,7 @@ RectTransform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1432873341}
   m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: 0, y: 0, z: -18.1}
+  m_LocalPosition: {x: 0, y: 0, z: -15.22}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1938,8 +1929,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 7
-  m_fontSizeBase: 7
+  m_fontSize: 7.65
+  m_fontSizeBase: 7.65
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -2262,7 +2253,7 @@ RectTransform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1671697804}
   m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: 0, y: 0, z: -10.4}
+  m_LocalPosition: {x: 0, y: 0, z: -9.61}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2270,7 +2261,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 90, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -81.43, y: 0}
+  m_AnchoredPosition: {x: -75.9, y: 0}
   m_SizeDelta: {x: 200, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1671697806
@@ -2320,8 +2311,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 8.61
-  m_fontSizeBase: 8.61
+  m_fontSize: 10.23
+  m_fontSizeBase: 10.23
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -2330,7 +2321,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 256
   m_textAlignment: 65535
-  m_characterSpacing: 6
+  m_characterSpacing: 2.75
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -2527,16 +2518,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 86c1571b51b302c4998f6cc112002581, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ManualAreaLabel
-  respectInspectorTextSettings: 1
-  sharedTMPPreset: {fileID: 0}
-  applyPresetOnStart: 1
   nameText: {fileID: 1432873343}
   percentText: {fileID: 1933580786}
   areaKey: VCTL4
   useCustomName: 0
   customNameText: VCTL4
   onlyShowInStaticTopDown: 1
-  keepTextBlack: 0
+  keepTextBlack: 1
   whiteWithBlackOutlineInStatic: 1
   outlineWidthStatic: 0.18
   outlineColorStatic: {r: 0, g: 0, b: 0, a: 0.95}
@@ -2750,7 +2738,7 @@ RectTransform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1933580784}
   m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: 0, y: 0, z: -24.5}
+  m_LocalPosition: {x: 0, y: 0, z: -23.12}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2758,7 +2746,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 90, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 1.5, y: 0}
+  m_AnchoredPosition: {x: 2.7, y: 0}
   m_SizeDelta: {x: 200, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1933580786
@@ -2808,8 +2796,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 8.61
-  m_fontSizeBase: 8.61
+  m_fontSize: 10
+  m_fontSizeBase: 10
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -2818,7 +2806,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 256
   m_textAlignment: 65535
-  m_characterSpacing: 6
+  m_characterSpacing: 0
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0

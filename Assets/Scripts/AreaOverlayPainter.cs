@@ -9,6 +9,16 @@ using TMPro;
 [DisallowMultipleComponent]
 public class AreaOverlayPainter : MonoBehaviour
 {
+[Header("Apple-style Colors (match AreaCard)")]
+[SerializeField] private bool useAppleCardPalette = true;
+[SerializeField] private Color appleDarkGreen = new Color(0.00f, 0.55f, 0.25f, 1f); // sólido, más natural
+[SerializeField] private Color appleLightGreen = new Color(0.40f, 0.70f, 0.30f, 1f);
+[SerializeField] private Color appleYellow    = new Color(1.00f, 0.80f, 0.20f, 1f);
+[SerializeField] private Color appleRed       = new Color(0.90f, 0.20f, 0.20f, 1f);
+
+[SerializeField, Range(0f,1f)] private float overlayAlpha = 1f;
+
+
     [Header("Overlay Settings")]
     [SerializeField] private bool useExactMeshOverlay = true;      // Mesh duplicado o Quad
     [SerializeField] private Material overlayMaterial;              // Unlit/Transparent o URP/Lit
@@ -89,6 +99,15 @@ public class AreaOverlayPainter : MonoBehaviour
         areaOverlays[area] = od;
     }
 
+Color GetAppleStatusColor(float result)
+{
+    if (result >= 95f) return appleDarkGreen;
+    if (result >= 80f) return appleLightGreen;
+    if (result >= 70f) return appleYellow;
+    return appleRed;
+}
+
+
     void BuildExactMeshOverlays(GameObject area, AreaOverlayData od)
     {
         foreach (var mf in area.GetComponentsInChildren<MeshFilter>(true))
@@ -105,7 +124,8 @@ public class AreaOverlayPainter : MonoBehaviour
 
             var mat = overlayMaterial != null ? new Material(overlayMaterial) : new Material(Shader.Find("Unlit/Color"));
             // Alpha base suave (URP o Standard)
-            SetMatColor(mat, new Color(1f, 1f, 1f, 0.35f));
+            SetMatColor(mat, Color.white); // ahora siempre sólido
+
             newMR.sharedMaterial = mat;
 
             newMR.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
@@ -169,42 +189,55 @@ public class AreaOverlayPainter : MonoBehaviour
         return u.Replace('_', ' ').Trim();
     }
 
-    void UpdateOverlayColorFromManager(AreaOverlayData od, GameObject area)
-    {
-        var info = GetInfoFromManager(area);
-        var baseCol = info.HasValue ? info.Value.color : new Color(1, 1, 1, 1);
-        var finalCol = new Color(baseCol.r, baseCol.g, baseCol.b, 0.35f); // alpha fijo para overlay
+void UpdateOverlayColorFromManager(AreaOverlayData od, GameObject area)
+{
+    var info = GetInfoFromManager(area);
 
-        if (useExactMeshOverlay)
+    Color baseCol;
+    if (useAppleCardPalette && info.HasValue)
+        baseCol = GetAppleStatusColor(info.Value.overall);
+    else
+        baseCol = info.HasValue ? info.Value.color : Color.white;
+
+    var finalCol = new Color(baseCol.r, baseCol.g, baseCol.b, overlayAlpha);
+
+    if (useExactMeshOverlay)
+    {
+        foreach (var ov in od.overlayMeshes)
         {
-            foreach (var ov in od.overlayMeshes)
-            {
-                if (!ov) continue;
-                var mr = ov.GetComponent<MeshRenderer>();
-                if (mr?.sharedMaterial != null) SetMatColor(mr.sharedMaterial, finalCol);
-            }
-        }
-        else if (od.overlayQuad)
-        {
-            var mr = od.overlayQuad.GetComponent<Renderer>();
+            if (!ov) continue;
+            var mr = ov.GetComponent<MeshRenderer>();
             if (mr?.sharedMaterial != null) SetMatColor(mr.sharedMaterial, finalCol);
         }
     }
+    else if (od.overlayQuad)
+    {
+        var mr = od.overlayQuad.GetComponent<Renderer>();
+        if (mr?.sharedMaterial != null) SetMatColor(mr.sharedMaterial, finalCol);
+    }
+}
+
 
     // Soporte de shaders URP/Standard/Unlit
-    static void SetMatColor(Material m, Color c)
-    {
-        if (!m) return;
+static void SetMatColor(Material m, Color c)
+{
+    if (!m) return;
 
-        // Transparencia amigable URP (ignorado si el shader no lo usa)
-        if (m.HasProperty("_Surface")) m.SetFloat("_Surface", 1f); // 0 Opaque, 1 Transparent
-        m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-        m.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+    // URP: forzar modo Transparent + blending típico
+    if (m.HasProperty("_Surface")) m.SetFloat("_Surface", 1f); // 0 Opaque, 1 Transparent
+    if (m.HasProperty("_SrcBlend")) m.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+    if (m.HasProperty("_DstBlend")) m.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+    if (m.HasProperty("_ZWrite"))   m.SetFloat("_ZWrite", 0f);
 
-        if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", c);
-        else if (m.HasProperty("_Color")) m.SetColor("_Color", c);
-        else m.color = c; // fallback
-    }
+    m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+    m.DisableKeyword("_ALPHAPREMULTIPLY_ON"); // usa blend normal
+    m.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+
+    if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", c);
+    else if (m.HasProperty("_Color")) m.SetColor("_Color", c);
+    else m.color = c;
+}
+
 
     // =================== Mostrar/Ocultar y refresco ===================
 

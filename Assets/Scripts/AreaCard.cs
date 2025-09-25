@@ -22,7 +22,8 @@ public class AreaCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     public Vector3 cardOffset = new Vector3(0, 25, 0);
 
     [Header("Esquinas redondeadas")]
-    [Range(2, 64)] public int cornerRadiusPx = 18;
+    [Range(2, 64)] public int cornerRadiusPx = 32;  // Más redondeado Apple-style
+
     [Range(32, 512)] public int roundedBaseSize = 64;
 
     [Header("Conexión tipo globo (flecha)")]
@@ -53,11 +54,12 @@ public class AreaCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     private bool topDownEnabled = false;
     private Camera playerCamera;
 
-    // Paleta por estado (base)
-    private Color optimusColor = new Color(0.20f, 0.80f, 0.30f, 1f);
-    private Color healthyColor = new Color(0.10f, 0.60f, 0.90f, 1f);
-    private Color sickColor = new Color(1.00f, 0.70f, 0.10f, 1f);
-    private Color highRiskColor = new Color(0.95f, 0.30f, 0.30f, 1f);
+// Apple-style theme colors (muted/soft for elegance)
+private Color optimusColor   = new Color(0.15f, 0.65f, 0.25f, 1f);  // >=90% Dark green
+private Color healthyColor   = new Color(0.45f, 0.75f, 0.35f, 1f);  // 70–89% Light green
+private Color sickColor      = new Color(0.85f, 0.65f, 0.15f, 1f);  // 60–69% Yellow
+private Color highRiskColor  = new Color(0.75f, 0.25f, 0.25f, 1f);  // <60% Red
+
 
     private static Sprite sRoundedSpriteCache;
     private static int sCachedSize;
@@ -141,7 +143,10 @@ public class AreaCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         Sprite rounded = GetOrCreateRoundedSprite(roundedBaseSize, cornerRadiusPx);
         backgroundImage.sprite = rounded;
         backgroundImage.type = Image.Type.Sliced;
-        backgroundImage.color = GetAreaColor(areaData.overallResult);
+        var baseColor = GetAreaColor(areaData.overallResult);
+        backgroundImage.color = baseColor;
+        AddWhiteOutline(backgroundImage);
+
 
         // Título
         GameObject nameObj = new GameObject("AreaName");
@@ -280,25 +285,37 @@ public class AreaCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
         return mat;
     }
 
+void AddWhiteOutline(Image image)
+{
+    if (image == null) return;
+    var outline = image.GetComponent<Outline>();
+    if (outline == null) outline = image.gameObject.AddComponent<Outline>();
+    outline.effectColor = Color.white;
+    outline.effectDistance = new Vector2(10.0f, 10.0f);  // Contorno más grueso Apple-style
+    outline.useGraphicAlpha = false;
+}
+
     // (4) Colores más contrastantes en Top-Down
-    Color GetAreaColor(float result)
-    {
-        Color baseCol =
-            (result >= 90f) ? optimusColor :
-            (result >= 80f) ? healthyColor :
-            (result >= 70f) ? sickColor :
-                              highRiskColor;
+// (4) Colores más contrastantes en Top-Down
+Color GetAreaColor(float result)
+{
+    Color baseCol;
 
-        if (!topDownEnabled) return baseCol;
+    if (result >= 95f)
+        baseCol = optimusColor;     // Verde oscuro
+    else if (result >= 80f)
+        baseCol = healthyColor;     // Verde claro
+    else if (result >= 70f)
+        baseCol = sickColor;        // Amarillo
+    else
+        baseCol = highRiskColor;    // Rojo
 
-        // Boost de contraste/claridad en Top-Down (ligero aumento de brillo y saturación)
-        Color.RGBToHSV(baseCol, out float h, out float s, out float v);
-        s = Mathf.Clamp01(s * 1.10f);   // +10% saturación
-        v = Mathf.Clamp01(v * 1.08f);   // +8% brillo
-        var boosted = Color.HSVToRGB(h, s, v);
-        boosted.a = baseCol.a;
-        return boosted;
-    }
+    // Apple-style: consistencia cromática; solo variamos alpha muy sutil
+    float a = topDownEnabled ? 0.88f : 0.92f;
+    return new Color(baseCol.r, baseCol.g, baseCol.b, a);
+}
+
+
 
     IEnumerator LookAtCamera()
     {
@@ -376,6 +393,17 @@ public class AreaCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
             Vector3 baseScale = topDownEnabled ? originalScale * topDownScaleMultiplier : originalScale;
             Vector3 targetScale = isHovering ? baseScale * hoverScale : baseScale;
             cardPanel.transform.localScale = Vector3.Lerp(cardPanel.transform.localScale, targetScale, Time.deltaTime * animationSpeed);
+
+            // Apple-style hover effect - subtle brightness change
+        if (backgroundImage != null)
+        {
+        var baseColor = GetAreaColor(areaData.overallResult);
+        var targetColor = isHovering
+            ? new Color(baseColor.r * 1.08f, baseColor.g * 1.08f, baseColor.b * 1.08f, baseColor.a)
+        : baseColor;
+        backgroundImage.color = Color.Lerp(backgroundImage.color, targetColor, Time.deltaTime * 12f);
+        }
+
         }
 
         UpdateBalloonPointer();

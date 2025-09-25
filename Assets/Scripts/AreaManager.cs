@@ -21,6 +21,8 @@ public class AreaManager : MonoBehaviour
     private Dictionary<string, Vector3> realAreaPositions = new Dictionary<string, Vector3>();
 
     private readonly Dictionary<GameObject, Bounds> areaBoundsByObject = new Dictionary<GameObject, Bounds>();
+    private AreaOverlayPainter overlayPainter;
+
 
     [Header("Colliders Precisos")]
     public List<PreciseColliderData> preciseColliders = new List<PreciseColliderData>();
@@ -80,6 +82,9 @@ public class AreaManager : MonoBehaviour
         }
 
         dashboard.ProvideDetail = (areaDisplayName, kpi) => GenerateDetailText(areaDisplayName, kpi);
+
+        overlayPainter = FindObjectOfType<AreaOverlayPainter>();
+
 
         if (areaObjects.Count == 0)
         {
@@ -302,40 +307,42 @@ public class AreaManager : MonoBehaviour
         }
     }
 
-    public void ToggleCameraMode()
-    {
-        if (topDownController == null)
-        {
-            Debug.LogWarning("No hay TopDownCameraController configurado.");
-            return;
-        }
-
-        isInTopDownMode = !isInTopDownMode;
-
-        if (isInTopDownMode)
-        {
-            topDownController.SetTopDownMode();
-            ApplyCardsMode(true);
-            if (cameraToggleText) cameraToggleText.text = "Vista: Mapa";
-
-            // Notificar a los textos manuales
-            NotifyManualLabelsUpdate();
-
-            if (enableDebugMode) Debug.Log("? Vista Top-Down");
-        }
-else
+public void ToggleCameraMode()
 {
-    topDownController.SetFreeMode();
-    ApplyCardsMode(false);
-    if (cameraToggleText) cameraToggleText.text = "Vista: Libre";
+    if (topDownController == null)
+    {
+        Debug.LogWarning("No hay TopDownCameraController configurado.");
+        return;
+    }
 
-    // ?? Notificar para ocultar todos los ManualAreaLabel al salir de MAPA
-    NotifyManualLabelsUpdate();
+    isInTopDownMode = !isInTopDownMode;
 
-    if (enableDebugMode) Debug.Log("? Vista Libre");
+    if (isInTopDownMode)
+    {
+        topDownController.SetTopDownMode();
+        ApplyCardsMode(true);
+        if (overlayPainter) overlayPainter.SetTopDownMode(true);   // ← NUEVO
+        if (cameraToggleText) cameraToggleText.text = "Vista: Mapa";
+
+        // Ya lo haces: actualizar labels
+        NotifyManualLabelsUpdate();
+
+        if (enableDebugMode) Debug.Log("📍 Vista Top-Down");
+    }
+    else
+    {
+        topDownController.SetFreeMode();
+        ApplyCardsMode(false);
+        if (overlayPainter) overlayPainter.SetTopDownMode(false);  // ← NUEVO
+        if (cameraToggleText) cameraToggleText.text = "Vista: Libre";
+
+        // Ya lo haces: actualizar labels
+        NotifyManualLabelsUpdate();
+
+        if (enableDebugMode) Debug.Log("📍 Vista Libre");
+    }
 }
 
-    }
 
     void ApplyCardsMode(bool topdown)
     {
