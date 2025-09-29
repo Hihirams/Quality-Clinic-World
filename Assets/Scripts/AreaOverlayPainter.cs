@@ -6,27 +6,35 @@ using UnityEngine.EventSystems;
 using TMPro;
 #endif
 
+/// <summary>
+/// Pinta overlays de color sobre las áreas (mesh exacto o quad) y reacciona
+/// a cambios de vista (Top-Down vs Libre). No toca tus ManualAreaLabel.
+/// - Color de estado unificado con AppleTheme.Status(percent) cuando está habilitado
+///   <see cref="useAppleCardPalette"/> para asegurar consistencia con AreaCard.
+/// - Encapsula creación/ocultado/reciclado de overlays por área y reenvía clics
+///   al <see cref="AreaManager"/> sin romper colisiones de UI.
+/// </summary>
 [DisallowMultipleComponent]
 public class AreaOverlayPainter : MonoBehaviour
 {
-[Header("Apple-style Colors (match AreaCard)")]
-[SerializeField] private bool useAppleCardPalette = true;
-[SerializeField] private Color appleDarkGreen = new Color(0.00f, 0.55f, 0.25f, 1f); // sólido, más natural
-[SerializeField] private Color appleLightGreen = new Color(0.40f, 0.70f, 0.30f, 1f);
-[SerializeField] private Color appleYellow    = new Color(1.00f, 0.80f, 0.20f, 1f);
-[SerializeField] private Color appleRed       = new Color(0.90f, 0.20f, 0.20f, 1f);
-
-[SerializeField, Range(0f,1f)] private float overlayAlpha = 1f;
-
+    #region Serialized Fields
+    [Header("Apple-style Colors (match AreaCard)")]
+    [SerializeField] private bool useAppleCardPalette = true;
+    // Se conservan para no romper escenas; si no usas AppleTheme, sirven de fallback local.
+    [SerializeField] private Color appleDarkGreen = new Color(0.00f, 0.55f, 0.25f, 1f);
+    [SerializeField] private Color appleLightGreen = new Color(0.40f, 0.70f, 0.30f, 1f);
+    [SerializeField] private Color appleYellow    = new Color(1.00f, 0.80f, 0.20f, 1f);
+    [SerializeField] private Color appleRed       = new Color(0.90f, 0.20f, 0.20f, 1f);
+    [SerializeField, Range(0f, 1f)] private float overlayAlpha = 1f;
 
     [Header("Overlay Settings")]
     [SerializeField] private bool useExactMeshOverlay = true;      // Mesh duplicado o Quad
     [SerializeField] private Material overlayMaterial;              // Unlit/Transparent o URP/Lit
     [SerializeField] private float overlayHeight = 0.02f;           // Evitar z-fighting
-    [SerializeField] private float padding = 0f;                    // (para Quad)
+    [SerializeField] private float padding = 0f;                    // (solo quad)
 
-    [Header("Textos autom�ticos del Painter")]
-    [Tooltip("Oculta SOLO los textos autom�ticos del painter en vista MAPA (Top-Down fija). No afecta tus ManualAreaLabel.")]
+    [Header("Textos automáticos del Painter")]
+    [Tooltip("Oculta SOLO textos automáticos del painter en vista MAPA (Top-Down fija). No afecta tus ManualAreaLabel.")]
     [SerializeField] private bool hideTextsInStaticTopDown = true;
 
     [Header("References")]
@@ -34,14 +42,17 @@ public class AreaOverlayPainter : MonoBehaviour
 
     [Header("Debug")]
     [SerializeField] private bool enableDebug = false;
+    #endregion
 
-    // Estado
-    private bool isTopDownMode = false;
+    #region Private State
+    private bool _isTopDownMode = false;
 
-    // Datos por �rea
-    private readonly Dictionary<GameObject, AreaOverlayData> areaOverlays = new();
+    // Datos por área
+    private readonly Dictionary<GameObject, AreaOverlayData> _areaOverlays = new();
 
-    // --- Contenedor por �rea ---
+    // Cache camera/main para checks rápidos
+    private Camera _cachedMainCamera;
+
     [System.Serializable]
     public class AreaOverlayData
     {
@@ -49,32 +60,69 @@ public class AreaOverlayPainter : MonoBehaviour
         public GameObject overlayQuad;                  // cuando useExactMeshOverlay = false
         public Collider clickCollider;                  // para click en el overlay
     }
+    #endregion
 
-    void Start()
+    #region Unity Callbacks
+    private void Awake()
+    {
+        // Cache rápido de cámara
+        _cachedMainCamera = Camera.main ?? FindObjectOfType<Camera>();
+    }
+
+    private void Start()
     {
         if (areaManager == null) areaManager = FindObjectOfType<AreaManager>();
         InitializeOverlays();
-        SetOverlaysActive(false); // por defecto oculto hasta entrar a MAPA si as� lo prefieres
+        // Por defecto oculto hasta entrar a MAPA (se conserva tu comportamiento)
+        SetOverlaysActive(false);
+        if (enableDebug) QCLog.Info("[AreaOverlayPainter] Start -> overlays inicializados y ocultos.");
     }
 
-    // === API llamado desde TopDownCameraController / AreaManager ===
+    private void OnDestroy()
+    {
+        // Limpieza explícita de objetos creados
+        foreach (var od in _areaOverlays.Values)
+        {
+            if (od.overlayMeshes != null)
+                foreach (var ov in od.overlayMeshes) if (ov) DestroyImmediate(ov);
+            if (od.overlayQuad) DestroyImmediate(od.overlayQuad);
+        }
+        _areaOverlays.Clear();
+    }
+    #endregion
+
+    #region Public API
+    /// <summary>
+    /// Habilita/deshabilita modo Top-Down. Gestiona visibilidad de overlays
+    /// y refresca color según KPI. Además, oculta SOLO textos automáticos del painter
+    /// en vista estática para no duplicar info con tus ManualAreaLabel.
+    /// </summary>
     public void SetTopDownMode(bool enable)
     {
-        if (enableDebug) Debug.Log($"[AreaOverlayPainter] SetTopDownMode: {enable}");
-        isTopDownMode = enable;
+        if (enableDebug) QCLog.Info($"[AreaOverlayPainter] SetTopDownMode: {enable}");
+        _isTopDownMode = enable;
 
-        SetOverlaysActive(isTopDownMode);
-        if (isTopDownMode) RefreshOverlaysForTopDown();
+        SetOverlaysActive(_isTopDownMode);
+        if (_isTopDownMode) RefreshOverlaysForTopDown();
 
-        // En MAPA ocultamos SOLO textos autom�ticos del painter (si existieran)
+        // En MAPA ocultamos SOLO textos automáticos del painter (si existieran)
         bool isStaticMap = IsStaticTopDownView();
         if (hideTextsInStaticTopDown && isStaticMap) SetOverlayTextsEnabled(false);
         else SetOverlayTextsEnabled(true);
     }
 
-    // =================== Construcci�n de overlays ===================
+    /// <summary>
+    /// Forward del click al AreaManager conservando tu flujo.
+    /// </summary>
+    public void HandleAreaClick(GameObject area)
+    {
+        if (areaManager != null) areaManager.OnAreaClicked(area);
+        else if (enableDebug) QCLog.Warn("[AreaOverlayPainter] HandleAreaClick sin AreaManager.");
+    }
+    #endregion
 
-    void InitializeOverlays()
+    #region Internal Helpers
+    private void InitializeOverlays()
     {
         foreach (var area in GetAreasFromManager())
         {
@@ -83,10 +131,10 @@ public class AreaOverlayPainter : MonoBehaviour
         }
     }
 
-    List<GameObject> GetAreasFromManager()
+    private List<GameObject> GetAreasFromManager()
         => areaManager != null ? (areaManager.GetAreaObjects() ?? new List<GameObject>()) : new List<GameObject>();
 
-    void CreateOverlayForArea(GameObject area)
+    private void CreateOverlayForArea(GameObject area)
     {
         var od = new AreaOverlayData();
 
@@ -94,21 +142,12 @@ public class AreaOverlayPainter : MonoBehaviour
         else BuildQuadOverlay(area, od);
 
         SetupClick(od, area);
-        UpdateOverlayColorFromManager(od, area); // color inicial seg�n status
+        UpdateOverlayColorFromManager(od, area); // color inicial según status
 
-        areaOverlays[area] = od;
+        _areaOverlays[area] = od;
     }
 
-Color GetAppleStatusColor(float result)
-{
-    if (result >= 95f) return appleDarkGreen;
-    if (result >= 80f) return appleLightGreen;
-    if (result >= 70f) return appleYellow;
-    return appleRed;
-}
-
-
-    void BuildExactMeshOverlays(GameObject area, AreaOverlayData od)
+    private void BuildExactMeshOverlays(GameObject area, AreaOverlayData od)
     {
         foreach (var mf in area.GetComponentsInChildren<MeshFilter>(true))
         {
@@ -123,8 +162,8 @@ Color GetAppleStatusColor(float result)
             var newMR = ov.AddComponent<MeshRenderer>();
 
             var mat = overlayMaterial != null ? new Material(overlayMaterial) : new Material(Shader.Find("Unlit/Color"));
-            // Alpha base suave (URP o Standard)
-            SetMatColor(mat, Color.white); // ahora siempre sólido
+            // Siempre transparente + alpha externo controlado
+            SetMatColor(mat, Color.white);
 
             newMR.sharedMaterial = mat;
 
@@ -138,7 +177,7 @@ Color GetAppleStatusColor(float result)
         }
     }
 
-    void BuildQuadOverlay(GameObject area, AreaOverlayData od)
+    private void BuildQuadOverlay(GameObject area, AreaOverlayData od)
     {
         var b = CalculateAreaBounds(area);
         var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
@@ -159,7 +198,7 @@ Color GetAppleStatusColor(float result)
         od.overlayQuad = quad;
     }
 
-    Bounds CalculateAreaBounds(GameObject area)
+    private Bounds CalculateAreaBounds(GameObject area)
     {
         var rs = area.GetComponentsInChildren<Renderer>();
         if (rs.Length == 0) return new Bounds(area.transform.position, new Vector3(1, 0.1f, 1));
@@ -169,11 +208,9 @@ Color GetAppleStatusColor(float result)
         return b;
     }
 
-    // =================== Coloreo desde AreaManager ===================
+    private struct OverlayInfo { public float overall; public Color color; }
 
-    struct OverlayInfo { public float overall; public Color color; }
-
-    OverlayInfo? GetInfoFromManager(GameObject area)
+    private OverlayInfo? GetInfoFromManager(GameObject area)
     {
         if (!areaManager) return null;
         string key = NormalizeKey(area.name);
@@ -182,68 +219,88 @@ Color GetAppleStatusColor(float result)
         return new OverlayInfo { overall = data.overallResult, color = data.statusColor };
     }
 
-    string NormalizeKey(string objectName)
+    private string NormalizeKey(string objectName)
     {
         string u = (objectName ?? "").ToUpperInvariant();
         if (u.StartsWith("AREA_")) u = u.Substring(5);
         return u.Replace('_', ' ').Trim();
     }
 
-void UpdateOverlayColorFromManager(AreaOverlayData od, GameObject area)
-{
-    var info = GetInfoFromManager(area);
-
-    Color baseCol;
-    if (useAppleCardPalette && info.HasValue)
-        baseCol = GetAppleStatusColor(info.Value.overall);
-    else
-        baseCol = info.HasValue ? info.Value.color : Color.white;
-
-    var finalCol = new Color(baseCol.r, baseCol.g, baseCol.b, overlayAlpha);
-
-    if (useExactMeshOverlay)
+    /// <summary>
+    /// Determina el color base para el overlay según los datos del AreaManager.
+    /// Si <see cref="useAppleCardPalette"/> está activo, usa AppleTheme.Status(percent).
+    /// Si no, usa el color del AreaManager. En última instancia, blanco.
+    /// </summary>
+    private Color ResolveStatusColor(float percent, Color? managerColorFallback)
     {
-        foreach (var ov in od.overlayMeshes)
+        if (useAppleCardPalette)
         {
-            if (!ov) continue;
-            var mr = ov.GetComponent<MeshRenderer>();
+            // Unificación de tema Apple entre tarjetas y overlays
+            return AppleTheme.Status(percent);
+        }
+
+        if (managerColorFallback.HasValue) return managerColorFallback.Value;
+
+        // Fallback final a paleta local mantenida para no romper escenas antiguas
+        if (percent >= 95f) return appleDarkGreen;
+        if (percent >= 80f) return appleLightGreen;
+        if (percent >= 70f) return appleYellow;
+        return appleRed;
+    }
+
+    private void UpdateOverlayColorFromManager(AreaOverlayData od, GameObject area)
+    {
+        var info = GetInfoFromManager(area);
+
+        // Color base seleccionado
+        Color baseCol = info.HasValue
+            ? ResolveStatusColor(info.Value.overall, info.Value.color)
+            : Color.white;
+
+        var finalCol = new Color(baseCol.r, baseCol.g, baseCol.b, overlayAlpha);
+
+        if (useExactMeshOverlay)
+        {
+            foreach (var ov in od.overlayMeshes)
+            {
+                if (!ov) continue;
+                var mr = ov.GetComponent<MeshRenderer>();
+                if (mr?.sharedMaterial != null) SetMatColor(mr.sharedMaterial, finalCol);
+            }
+        }
+        else if (od.overlayQuad)
+        {
+            var mr = od.overlayQuad.GetComponent<Renderer>();
             if (mr?.sharedMaterial != null) SetMatColor(mr.sharedMaterial, finalCol);
         }
     }
-    else if (od.overlayQuad)
+
+    /// <remarks>
+    /// Ajusta propiedades URP/Standard/Unlit para transparencia sin z-writing
+    /// y aplica el color indicado respetando "_BaseColor" o "_Color".
+    /// </remarks>
+    private static void SetMatColor(Material m, Color c)
     {
-        var mr = od.overlayQuad.GetComponent<Renderer>();
-        if (mr?.sharedMaterial != null) SetMatColor(mr.sharedMaterial, finalCol);
+        if (!m) return;
+
+        // URP: Transparent + blending típico
+        if (m.HasProperty("_Surface")) m.SetFloat("_Surface", 1f); // 0 Opaque, 1 Transparent
+        if (m.HasProperty("_SrcBlend")) m.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+        if (m.HasProperty("_DstBlend")) m.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        if (m.HasProperty("_ZWrite"))   m.SetFloat("_ZWrite", 0f);
+
+        m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+        m.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+        m.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+
+        if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", c);
+        else if (m.HasProperty("_Color")) m.SetColor("_Color", c);
+        else m.color = c;
     }
-}
 
-
-    // Soporte de shaders URP/Standard/Unlit
-static void SetMatColor(Material m, Color c)
-{
-    if (!m) return;
-
-    // URP: forzar modo Transparent + blending típico
-    if (m.HasProperty("_Surface")) m.SetFloat("_Surface", 1f); // 0 Opaque, 1 Transparent
-    if (m.HasProperty("_SrcBlend")) m.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
-    if (m.HasProperty("_DstBlend")) m.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-    if (m.HasProperty("_ZWrite"))   m.SetFloat("_ZWrite", 0f);
-
-    m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-    m.DisableKeyword("_ALPHAPREMULTIPLY_ON"); // usa blend normal
-    m.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
-
-    if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", c);
-    else if (m.HasProperty("_Color")) m.SetColor("_Color", c);
-    else m.color = c;
-}
-
-
-    // =================== Mostrar/Ocultar y refresco ===================
-
-    void SetOverlaysActive(bool active)
+    private void SetOverlaysActive(bool active)
     {
-        foreach (var od in areaOverlays.Values)
+        foreach (var od in _areaOverlays.Values)
         {
             if (useExactMeshOverlay)
                 foreach (var ov in od.overlayMeshes) if (ov) ov.SetActive(active);
@@ -251,17 +308,15 @@ static void SetMatColor(Material m, Color c)
         }
     }
 
-    void RefreshOverlaysForTopDown()
+    private void RefreshOverlaysForTopDown()
     {
-        foreach (var kv in areaOverlays)
+        foreach (var kv in _areaOverlays)
             UpdateOverlayColorFromManager(kv.Value, kv.Key);
     }
 
-    // =================== Click forwarding (opcional) ===================
-
-    void SetupClick(AreaOverlayData od, GameObject area)
+    private void SetupClick(AreaOverlayData od, GameObject area)
     {
-        // Usa un collider del propio �rea (o crea uno si no hay) para propagar clicks
+        // Usa un collider del propio área (o crea uno si no hay) para propagar clicks
         var target = area;
         var col = target.GetComponent<Collider>();
         if (!col)
@@ -279,23 +334,21 @@ static void SetMatColor(Material m, Color c)
         click.Initialize(area, this);
     }
 
-    public void HandleAreaClick(GameObject area)
-    {
-        if (areaManager != null) areaManager.OnAreaClicked(area);
-    }
-
-    // =================== Utilidades ===================
-
+    /// <summary>
+    /// ¿Estamos en top-down estático? Lo usamos para ocultar textos propios del painter.
+    /// </summary>
     private bool IsStaticTopDownView()
     {
-        var cam = Camera.main;
+        var cam = _cachedMainCamera != null ? _cachedMainCamera : (_cachedMainCamera = Camera.main);
         if (!cam) return false;
         var top = cam.GetComponent<TopDownCameraController>();
         return top != null && top.IsUsingFixedStaticView();
     }
 
+    /// <summary>
     /// Oculta/Muestra SOLO componentes de texto bajo este GameObject (por si
-    /// qued� alg�n texto autom�tico de versiones previas del painter).
+    /// quedó algún texto automático de versiones previas del painter).
+    /// </summary>
     private void SetOverlayTextsEnabled(bool enabled)
     {
         int count = 0;
@@ -306,47 +359,36 @@ static void SetMatColor(Material m, Color c)
             var uText = tr.GetComponent<Text>();
             if (uText) { uText.enabled = enabled; count++; }
 
-#if TMP_PRESENT || TEXTMESHPRO_PRESENT
+    #if TMP_PRESENT || TEXTMESHPRO_PRESENT
             var tmpUGUI = tr.GetComponent<TextMeshProUGUI>();
             if (tmpUGUI) { tmpUGUI.enabled = enabled; count++; }
 
             var tmp = tr.GetComponent<TextMeshPro>();
             if (tmp) { tmp.enabled = enabled; count++; }
-#endif
+    #endif
         }
-        if (enableDebug) Debug.Log($"[AreaOverlayPainter] Textos del painter {(enabled ? "ON" : "OFF")} ({count}).");
+        if (enableDebug) QCLog.Info($"[AreaOverlayPainter] Textos del painter {(enabled ? "ON" : "OFF")} ({count}).");
     }
+    #endregion
 
-    void OnDestroy()
+    #region Debug
+    // Clase interna para enrutar el click desde el collider del área
+    public class AreaOverlayClick : MonoBehaviour
     {
-        foreach (var od in areaOverlays.Values)
+        private GameObject _targetArea;
+        private AreaOverlayPainter _overlayPainter;
+
+        public void Initialize(GameObject area, AreaOverlayPainter painter)
+        { _targetArea = area; _overlayPainter = painter; }
+
+        private void OnMouseDown()
         {
-            foreach (var ov in od.overlayMeshes) if (ov) DestroyImmediate(ov);
-            if (od.overlayQuad) DestroyImmediate(od.overlayQuad);
+            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+                return;
+
+            if (_overlayPainter != null && _targetArea != null)
+                _overlayPainter.HandleAreaClick(_targetArea);
         }
-        areaOverlays.Clear();
     }
+    #endregion
 }
-
-// Enrutador simple de click al AreaManager
-public class AreaOverlayClick : MonoBehaviour
-{
-    private GameObject targetArea;
-    private AreaOverlayPainter overlayPainter;
-
-    public void Initialize(GameObject area, AreaOverlayPainter painter)
-    { targetArea = area; overlayPainter = painter; }
-
-    void OnMouseDown()
-    {
-        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
-            return;
-
-        if (overlayPainter != null && targetArea != null)
-            overlayPainter.HandleAreaClick(targetArea);
-    }
-}
-
-
-
-

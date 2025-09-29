@@ -1,263 +1,381 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>
+/// Corrige y valida las posiciones de áreas industriales y sus elementos visuales hijos.
+/// Permite centrar áreas en base a sus cubos visuales o ajustar posiciones locales.
+/// Se ejecuta antes que AreaManager para garantizar posiciones correctas en inicialización.
+/// </summary>
+/// <remarks>
+/// Orden de ejecución: se fuerza a correr antes de AreaManager para que las áreas ya
+/// estén en sus coordenadas definitivas cuando el manager inicialice overlays, labels, etc.
+/// </remarks>
+[DefaultExecutionOrder(-100)]
 public class AreaPositionFixerV2 : MonoBehaviour
 {
-	[System.Serializable]
-	public class AreaCorrection
-	{
-		public string areaName;
-		public Vector3 targetAreaPosition;  // Donde debe estar el área padre
-		public Vector3 targetCubePosition;  // Donde debe estar el cubo visual
-		public string cubeChildName;        // Nombre del cubo hijo
-	}
+    #region Nested Types
 
-	[Header("Configuración")]
-	public bool autoFixOnStart = false;
-	public bool debugMode = true;
+    /// <summary>
+    /// Define la corrección de posición para un área específica.
+    /// </summary>
+    [System.Serializable]
+    public class AreaCorrection
+    {
+        /// <summary>Nombre del GameObject raíz del área en la jerarquía (p.ej. "Area_VBL1").</summary>
+        public string areaName;
 
-	[Header("Correcciones Configuradas")]
-	public List<AreaCorrection> corrections = new List<AreaCorrection>();
+        /// <summary>Posición objetivo del objeto padre del área (si se usa restauración/alternativo).</summary>
+        public Vector3 targetAreaPosition;
 
-	void Start()
-	{
-		InitializeCorrections();
+        /// <summary>Posición objetivo del cubo visual principal (informativo/depuración).</summary>
+        public Vector3 targetCubePosition;
 
-		if (autoFixOnStart)
-		{
-			FixAreaPositionsAndChildren();
-		}
-	}
+        /// <summary>Nombre del hijo que representa el cubo visual principal.</summary>
+        public string cubeChildName;
+    }
 
-	void InitializeCorrections()
-	{
-		corrections.Clear();
+    #endregion
 
-		// ATHONDA - El área y su cubo deben estar en la misma posición
-		corrections.Add(new AreaCorrection
-		{
-			areaName = "Area_ATHONDA",
-			targetAreaPosition = new Vector3(-58.72f, 0.00f, 109.54f),
-			targetCubePosition = new Vector3(-58.72f, 0.00f, 109.54f),
-			cubeChildName = "Cube (8)"
-		});
+    #region Serialized Fields
 
-		// VCTL4 
-		corrections.Add(new AreaCorrection
-		{
-			areaName = "Area_VCTL4",
-			targetAreaPosition = new Vector3(-1.96f, 0.00f, 24.14f),
-			targetCubePosition = new Vector3(-1.96f, 0.00f, 24.14f),
-			cubeChildName = "Cube (52)"
-		});
+    [Header("Configuración")]
+    [Tooltip("Si está activado, corrige posiciones automáticamente al iniciar")]
+    public bool autoFixOnStart = false;
 
-		// BUZZERL2
-		corrections.Add(new AreaCorrection
-		{
-			areaName = "Area_BUZZERL2",
-			targetAreaPosition = new Vector3(0.28f, 0.00f, -15.18f),
-			targetCubePosition = new Vector3(0.28f, 0.00f, -15.18f),
-			cubeChildName = "Cube (49)"
-		});
+    [Tooltip("Habilita logs detallados de corrección (usando QCLog.Info con QC_VERBOSE)")]
+    public bool debugMode = true;
 
-		// VBL1 - Ya está correcta
-		corrections.Add(new AreaCorrection
-		{
-			areaName = "Area_VBL1",
-			targetAreaPosition = new Vector3(-15.92f, 1.50f, 153.32f),
-			targetCubePosition = new Vector3(-0.92f, 0.00f, 146.04f), // Cubo principal
-			cubeChildName = "Cube (60)"
-		});
+    [Header("Correcciones Configuradas")]
+    [Tooltip("Lista de correcciones a aplicar por área")]
+    public List<AreaCorrection> corrections = new List<AreaCorrection>();
 
-		if (debugMode)
-		{
-			Debug.Log("Correcciones V2 inicializadas: " + corrections.Count);
-		}
-	}
+    #endregion
 
-	[ContextMenu("Restaurar Posiciones Originales")]
-	public void RestoreOriginalPositions()
-	{
-		Debug.Log("=== RESTAURANDO POSICIONES ORIGINALES ===");
+    #region Private State
 
-		// Restaurar las posiciones basándose en el debug log original
-		RestoreAreaToOriginal("Area_ATHONDA", new Vector3(-64.41f, 0.00f, 125.38f));
-		RestoreAreaToOriginal("Area_VCTL4", new Vector3(-64.41f, 0.00f, 125.38f));
-		RestoreAreaToOriginal("Area_BUZZERL2", new Vector3(-64.41f, 0.00f, 125.38f));
-		// VBL1 no necesita restauración
+    // Caché de áreas procesadas para evitar búsquedas repetidas
+    private readonly Dictionary<string, Transform> _areaCache = new Dictionary<string, Transform>();
 
-		Debug.Log("=== RESTAURACIÓN COMPLETADA ===");
-	}
+    #endregion
 
-	void RestoreAreaToOriginal(string areaName, Vector3 originalPosition)
-	{
-		GameObject areaObj = GameObject.Find(areaName);
-		if (areaObj != null)
-		{
-			areaObj.transform.position = originalPosition;
-			Debug.Log("Restaurada " + areaName + " a: " + originalPosition);
-		}
-	}
+    #region Unity Callbacks
 
-	[ContextMenu("Fix Areas and Children Correctly")]
-	public void FixAreaPositionsAndChildren()
-	{
-		Debug.Log("=== CORRIGIENDO ÁREAS Y SUS HIJOS CORRECTAMENTE ===");
+    private void Start()
+    {
+        InitializeCorrections();
 
-		foreach (AreaCorrection correction in corrections)
-		{
-			GameObject areaObj = GameObject.Find(correction.areaName);
+        if (autoFixOnStart)
+        {
+            // Método recomendado: centrar por cubos visuales
+            FixAreaPositionsAndChildren();
+        }
+    }
 
-			if (areaObj != null)
-			{
-				// MÉTODO 1: Mover el área al centro de sus elementos visuales
-				CenterAreaOnVisualElements(areaObj, correction);
-			}
-			else
-			{
-				Debug.LogWarning("Área no encontrada: " + correction.areaName);
-			}
-		}
+    private void Update()
+    {
+        // Hotkeys de utilidad (solo en desarrollo)
+        if (Input.GetKeyDown(KeyCode.F4))
+            RestoreOriginalPositions();
 
-		Debug.Log("=== CORRECCIÓN COMPLETADA ===");
-	}
+        if (Input.GetKeyDown(KeyCode.F5))
+            FixAreaPositionsAndChildren();
 
-	void CenterAreaOnVisualElements(GameObject areaObj, AreaCorrection correction)
-	{
-		// Encontrar todos los cubos (elementos visuales) del área
-		List<GameObject> visualCubes = new List<GameObject>();
+        if (Input.GetKeyDown(KeyCode.F6))
+            AlternativeFixAdjustLocalPositions();
 
-		// Buscar cubos en los hijos
-		foreach (Transform child in areaObj.transform)
-		{
-			if (child.name.Contains("Cube") && child.GetComponent<Renderer>() != null)
-			{
-				visualCubes.Add(child.gameObject);
-			}
-		}
+        if (Input.GetKeyDown(KeyCode.F7))
+            DebugCurrentPositions();
+    }
 
-		if (visualCubes.Count == 0)
-		{
-			Debug.LogWarning("No se encontraron cubos visuales en " + correction.areaName);
-			return;
-		}
+    #endregion
 
-		// Calcular el centro de todos los cubos visuales
-		Vector3 centerPoint = Vector3.zero;
-		foreach (GameObject cube in visualCubes)
-		{
-			centerPoint += cube.transform.position;
-		}
-		centerPoint /= visualCubes.Count;
+    #region Public API
 
-		// Ajustar Y para que el área esté en el suelo
-		centerPoint.y = 0f;
-		if (correction.areaName == "Area_VBL1")
-		{
-			centerPoint.y = 1.5f; // VBL1 tiene altura especial
-		}
+    /// <summary>
+    /// Restaura todas las áreas a sus posiciones originales antes de cualquier corrección.
+    /// </summary>
+    [ContextMenu("Restaurar Posiciones Originales")]
+    public void RestoreOriginalPositions()
+    {
+        if (debugMode) QCLog.Info("=== RESTAURANDO POSICIONES ORIGINALES ===");
 
-		Debug.Log("Moviendo " + correction.areaName + " de " + areaObj.transform.position + " a " + centerPoint);
+        // Basado en el log de referencia original del proyecto (no tocar nombres)
+        RestoreAreaToOriginal("Area_ATHONDA", new Vector3(-64.41f, 0.00f, 125.38f));
+        RestoreAreaToOriginal("Area_VCTL4",   new Vector3(-64.41f, 0.00f, 125.38f));
+        RestoreAreaToOriginal("Area_BUZZERL2",new Vector3(-64.41f, 0.00f, 125.38f));
+        // VBL1 no necesita restauración
 
-		// Mover el área al centro calculado
-		areaObj.transform.position = centerPoint;
+        if (debugMode) QCLog.Info("=== RESTAURACIÓN COMPLETADA ===");
+    }
 
-		Debug.Log("Área " + correction.areaName + " centrada en: " + centerPoint);
-	}
+    /// <summary>
+    /// Corrige las posiciones de áreas centrándolas en sus elementos visuales.
+    /// Método principal recomendado (no altera la forma relativa de los cubos).
+    /// </summary>
+    [ContextMenu("Fix Areas and Children Correctly")]
+    public void FixAreaPositionsAndChildren()
+    {
+        if (debugMode) QCLog.Info("=== CORRIGIENDO ÁREAS Y SUS HIJOS CORRECTAMENTE ===");
 
-	[ContextMenu("Alternative Fix - Adjust Local Positions")]
-	public void AlternativeFixAdjustLocalPositions()
-	{
-		Debug.Log("=== MÉTODO ALTERNATIVO: AJUSTAR POSICIONES LOCALES ===");
+        foreach (AreaCorrection correction in corrections)
+        {
+            Transform areaTransform = FindAreaTransform(correction.areaName);
 
-		// Primero restaurar posiciones originales
-		RestoreOriginalPositions();
+            if (areaTransform != null)
+            {
+                // Centrar el padre en el centro geométrico de sus cubos visibles
+                CenterAreaOnVisualElements(areaTransform.gameObject, correction);
+            }
+            else
+            {
+                QCLog.Warn($"Área no encontrada: {correction.areaName}");
+            }
+        }
 
-		foreach (AreaCorrection correction in corrections)
-		{
-			GameObject areaObj = GameObject.Find(correction.areaName);
+        if (debugMode) QCLog.Info("=== CORRECCIÓN COMPLETADA ===");
+    }
 
-			if (areaObj != null)
-			{
-				// Mover el área padre a su posición correcta
-				Vector3 oldAreaPos = areaObj.transform.position;
-				areaObj.transform.position = correction.targetAreaPosition;
+    /// <summary>
+    /// Método alternativo: mueve el padre y reajusta las posiciones locales de los cubos
+    /// para mantener su posición global (útil si quieres mover el pivot sin “arrastrar” visuales).
+    /// </summary>
+    [ContextMenu("Alternative Fix - Adjust Local Positions")]
+    public void AlternativeFixAdjustLocalPositions()
+    {
+        if (debugMode) QCLog.Info("=== MÉTODO ALTERNATIVO: AJUSTAR POSICIONES LOCALES ===");
 
-				// Calcular el offset que se aplicó
-				Vector3 offset = correction.targetAreaPosition - oldAreaPos;
+        // Garantizar estado base antes de aplicar el alternativo
+        RestoreOriginalPositions();
 
-				Debug.Log("Área " + correction.areaName + ":");
-				Debug.Log("  Movida de " + oldAreaPos + " a " + correction.targetAreaPosition);
-				Debug.Log("  Offset aplicado: " + offset);
+        foreach (AreaCorrection correction in corrections)
+        {
+            Transform areaTransform = FindAreaTransform(correction.areaName);
 
-				// Ajustar posiciones locales de hijos para compensar el movimiento
-				foreach (Transform child in areaObj.transform)
-				{
-					if (child.name.Contains("Cube"))
-					{
-						Vector3 oldLocalPos = child.localPosition;
-						child.localPosition = oldLocalPos - offset;
+            if (areaTransform != null)
+            {
+                // Mover el área padre a su posición correcta
+                Vector3 oldAreaPos = areaTransform.position;
+                areaTransform.position = correction.targetAreaPosition;
 
-						Debug.Log("  Hijo " + child.name + ":");
-						Debug.Log("    Local pos ajustada de " + oldLocalPos + " a " + child.localPosition);
-						Debug.Log("    World pos resultante: " + child.position);
-					}
-				}
-			}
-		}
+                // Calcular y registrar offset aplicado
+                Vector3 offset = correction.targetAreaPosition - oldAreaPos;
 
-		Debug.Log("=== AJUSTE ALTERNATIVO COMPLETADO ===");
-	}
+                if (debugMode)
+                {
+                    QCLog.Info($"Área {correction.areaName}:");
+                    QCLog.Info($"  Movida de {oldAreaPos} a {correction.targetAreaPosition}");
+                    QCLog.Info($"  Offset aplicado: {offset}");
+                }
 
-	[ContextMenu("Debug Current Positions")]
-	public void DebugCurrentPositions()
-	{
-		Debug.Log("=== POSICIONES ACTUALES ===");
+                // Ajustar posiciones locales de hijos "Cube" para que su world-pos no cambie
+                AdjustChildrenLocalPositions(areaTransform, offset);
+            }
+        }
 
-		string[] areaNames = { "Area_ATHONDA", "Area_VCTL4", "Area_BUZZERL2", "Area_VBL1" };
+        if (debugMode) QCLog.Info("=== AJUSTE ALTERNATIVO COMPLETADO ===");
+    }
 
-		foreach (string areaName in areaNames)
-		{
-			GameObject areaObj = GameObject.Find(areaName);
-			if (areaObj != null)
-			{
-				Debug.Log("ÁREA: " + areaName);
-				Debug.Log("  Posición: " + areaObj.transform.position);
+    /// <summary>
+    /// Lista por consola las posiciones actuales de áreas y sus cubos (depuración).
+    /// </summary>
+    [ContextMenu("Debug Current Positions")]
+    public void DebugCurrentPositions()
+    {
+        QCLog.Info("=== POSICIONES ACTUALES ===");
 
-				foreach (Transform child in areaObj.transform)
-				{
-					if (child.name.Contains("Cube"))
-					{
-						Debug.Log("  - " + child.name + ": " + child.position + " (local: " + child.localPosition + ")");
-					}
-				}
-				Debug.Log("");
-			}
-		}
+        string[] areaNames = { "Area_ATHONDA", "Area_VCTL4", "Area_BUZZERL2", "Area_VBL1" };
 
-		Debug.Log("=== FIN DEBUG ===");
-	}
+        foreach (string name in areaNames)
+        {
+            Transform areaTransform = FindAreaTransform(name);
+            if (areaTransform != null)
+            {
+                QCLog.Info($"ÁREA: {name}");
+                QCLog.Info($"  Posición: {areaTransform.position}");
 
-	void Update()
-	{
-		if (Input.GetKeyDown(KeyCode.F4))
-		{
-			RestoreOriginalPositions();
-		}
+                foreach (Transform child in areaTransform)
+                {
+                    if (child.name.Contains("Cube"))
+                    {
+                        QCLog.Info($"  - {child.name}: {child.position} (local: {child.localPosition})");
+                    }
+                }
 
-		if (Input.GetKeyDown(KeyCode.F5))
-		{
-			FixAreaPositionsAndChildren();
-		}
+                QCLog.Info(string.Empty);
+            }
+        }
 
-		if (Input.GetKeyDown(KeyCode.F6))
-		{
-			AlternativeFixAdjustLocalPositions();
-		}
+        QCLog.Info("=== FIN DEBUG ===");
+    }
 
-		if (Input.GetKeyDown(KeyCode.F7))
-		{
-			DebugCurrentPositions();
-		}
-	}
+    #endregion
+
+    #region Internal Helpers
+
+    /// <summary>
+    /// Inicializa la lista de correcciones con los valores predefinidos para cada área.
+    /// </summary>
+    private void InitializeCorrections()
+    {
+        corrections.Clear();
+
+        // ATHONDA
+        corrections.Add(new AreaCorrection
+        {
+            areaName = "Area_ATHONDA",
+            targetAreaPosition = new Vector3(-58.72f, 0.00f, 109.54f),
+            targetCubePosition = new Vector3(-58.72f, 0.00f, 109.54f),
+            cubeChildName = "Cube (8)"
+        });
+
+        // VCTL4
+        corrections.Add(new AreaCorrection
+        {
+            areaName = "Area_VCTL4",
+            targetAreaPosition = new Vector3(-1.96f, 0.00f, 24.14f),
+            targetCubePosition = new Vector3(-1.96f, 0.00f, 24.14f),
+            cubeChildName = "Cube (52)"
+        });
+
+        // BUZZERL2
+        corrections.Add(new AreaCorrection
+        {
+            areaName = "Area_BUZZERL2",
+            targetAreaPosition = new Vector3(0.28f, 0.00f, -15.18f),
+            targetCubePosition = new Vector3(0.28f, 0.00f, -15.18f),
+            cubeChildName = "Cube (49)"
+        });
+
+        // VBL1 (altura especial en Y = 1.5f)
+        corrections.Add(new AreaCorrection
+        {
+            areaName = "Area_VBL1",
+            targetAreaPosition = new Vector3(-15.92f, 1.50f, 153.32f),
+            targetCubePosition = new Vector3(-0.92f, 0.00f, 146.04f),
+            cubeChildName = "Cube (60)"
+        });
+
+        if (debugMode)
+        {
+            QCLog.Info($"Correcciones V2 inicializadas: {corrections.Count}");
+        }
+    }
+
+    /// <summary>
+    /// Restaura un área específica a su posición original.
+    /// </summary>
+    private void RestoreAreaToOriginal(string areaName, Vector3 originalPosition)
+    {
+        Transform areaTransform = FindAreaTransform(areaName);
+        if (areaTransform != null)
+        {
+            areaTransform.position = originalPosition;
+            if (debugMode) QCLog.Info($"Restaurada {areaName} a: {originalPosition}");
+        }
+    }
+
+    /// <summary>
+    /// Centra un área en el punto medio de todos sus cubos visuales visibles.
+    /// Conserva altura Y de acuerdo con necesidades por área (VBL1 = 1.5; resto = 0).
+    /// </summary>
+    private void CenterAreaOnVisualElements(GameObject areaObj, AreaCorrection correction)
+    {
+        // 1) Recolectar cubos visibles (con Renderer)
+        List<Transform> visualCubes = FindVisualCubes(areaObj.transform);
+        if (visualCubes.Count == 0)
+        {
+            QCLog.Warn($"No se encontraron cubos visuales en {correction.areaName}");
+            return;
+        }
+
+        // 2) Centro geométrico de las posiciones
+        Vector3 centerPoint = CalculateGeometricCenter(visualCubes);
+
+        // 3) Ajuste de altura (suelo / caso especial)
+        centerPoint.y = correction.areaName == "Area_VBL1" ? 1.5f : 0f;
+
+        if (debugMode)
+            QCLog.Info($"Moviendo {correction.areaName} de {areaObj.transform.position} a {centerPoint}");
+
+        // 4) Aplicar
+        areaObj.transform.position = centerPoint;
+
+        if (debugMode)
+            QCLog.Info($"Área {correction.areaName} centrada en: {centerPoint}");
+    }
+
+    /// <summary>
+    /// Devuelve todos los hijos tipo "Cube" que tengan Renderer (visibles).
+    /// </summary>
+    private List<Transform> FindVisualCubes(Transform areaTransform)
+    {
+        var list = new List<Transform>();
+
+        foreach (Transform child in areaTransform)
+        {
+            if (child.name.Contains("Cube") && child.TryGetComponent<Renderer>(out _))
+                list.Add(child);
+        }
+
+        return list;
+    }
+
+    /// <summary>
+    /// Calcula el centro geométrico (promedio) de una lista de transforms.
+    /// </summary>
+    private Vector3 CalculateGeometricCenter(List<Transform> transforms)
+    {
+        Vector3 acc = Vector3.zero;
+        for (int i = 0; i < transforms.Count; i++)
+            acc += transforms[i].position;
+
+        return acc / Mathf.Max(1, transforms.Count);
+    }
+
+    /// <summary>
+    /// Ajusta localPosition de hijos "Cube" para compensar un desplazamiento del padre (mantener world-pos).
+    /// </summary>
+    private void AdjustChildrenLocalPositions(Transform areaTransform, Vector3 offset)
+    {
+        foreach (Transform child in areaTransform)
+        {
+            if (!child.name.Contains("Cube")) continue;
+
+            Vector3 oldLocalPos = child.localPosition;
+            child.localPosition = oldLocalPos - offset;
+
+            if (debugMode)
+            {
+                QCLog.Info($"  Hijo {child.name}:");
+                QCLog.Info($"    Local pos ajustada de {oldLocalPos} a {child.localPosition}");
+                QCLog.Info($"    World pos resultante: {child.position}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Busca y cachea el Transform de un área por nombre (evita Find repetido).
+    /// </summary>
+    private Transform FindAreaTransform(string areaName)
+    {
+        // 1) Intentar desde caché
+        if (_areaCache.TryGetValue(areaName, out Transform cached) && cached != null)
+            return cached;
+
+        // 2) Buscar en escena
+        GameObject areaObj = GameObject.Find(areaName);
+        if (areaObj != null)
+        {
+            _areaCache[areaName] = areaObj.transform;
+            return areaObj.transform;
+        }
+
+        return null;
+    }
+
+    #endregion
+
+    #region Debug
+    // Los métodos de depuración están en Public API para poder invocarlos por ContextMenu.
+    #endregion
 }
