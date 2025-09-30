@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -6,12 +6,12 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 /// <summary>
-/// Gestor central de Ã¡reas industriales en Quality Clinic.
+/// Gestor central de áreas industriales en Quality Clinic.
 /// Responsabilidades:
-/// - Administrar datos y posiciones de Ã¡reas (ATHONDA, VCTL4, BUZZERL2, VBL1)
-/// - Detectar clicks en Ã¡reas 3D y activar dashboard
-/// - Alternar entre vista libre (Sims) y top-down (mapa estÃ¡tico)
-/// - Coordinar AreaCards, labels y overlays segÃºn modo de cÃ¡mara
+/// - Administrar datos y posiciones de áreas (ATHONDA, VCTL4, BUZZERL2, VBL1)
+/// - Detectar clicks en áreas 3D y activar dashboard
+/// - Alternar entre vista libre (Sims) y top-down (mapa estático)
+/// - Coordinar AreaCards, labels y overlays según modo de cámara
 /// - Proveer API de datos a IndustrialDashboard
 /// </summary>
 public class AreaManager : MonoBehaviour
@@ -21,10 +21,10 @@ public class AreaManager : MonoBehaviour
     [Header("Referencias del Sistema")]
     public IndustrialDashboard dashboard;
 
-    [Header("ConfiguraciÃ³n de Ãreas")]
+    [Header("Configuración de Áreas")]
     public List<GameObject> areaObjects = new List<GameObject>();
 
-    [Header("ConfiguraciÃ³n de Debug")]
+    [Header("Configuración de Debug")]
     public bool enableDebugMode = true;
 
     [Header("Colliders Precisos")]
@@ -68,7 +68,7 @@ public class AreaManager : MonoBehaviour
 
     #region Private State
 
-    // Datos por Ã¡rea
+    // Datos por área
     private Dictionary<string, AreaData> areaDataDict = new Dictionary<string, AreaData>();
     private Dictionary<string, Vector3> realAreaPositions = new Dictionary<string, Vector3>();
     private readonly Dictionary<GameObject, Bounds> areaBoundsByObject = new Dictionary<GameObject, Bounds>();
@@ -77,7 +77,7 @@ public class AreaManager : MonoBehaviour
     private AreaOverlayPainter overlayPainter;
     private TopDownCameraController topDownController;
     private Camera cachedMainCamera;
-    private FreeCameraController freeCameraController;
+    private SimsCameraController simsCameraController;
     private ManualLabelsManager labelsManager;
 
     // Estado de vista
@@ -88,7 +88,7 @@ public class AreaManager : MonoBehaviour
     private Button cameraToggleButton;
     private Text cameraToggleText;
 
-    // OptimizaciÃ³n de raycast
+    // Optimización de raycast
     private readonly List<RaycastResult> raycastResultsCache = new List<RaycastResult>();
 
     #endregion
@@ -106,13 +106,13 @@ public class AreaManager : MonoBehaviour
 
     void Update()
     {
-        // Click en Ã¡reas (solo si no estÃ¡ sobre UI bloqueante)
+        // Click en áreas (solo si no está sobre UI bloqueante)
         if (Input.GetMouseButtonDown(0) && !IsPointerOverBlockingUI())
         {
             HandleAreaClickSimplified();
         }
 
-        // Hotkeys de debug (solo si enableDebugMode estÃ¡ activo)
+        // Hotkeys de debug (solo si enableDebugMode está activo)
         if (!enableDebugMode) return;
 
         if (Input.GetKeyDown(KeyCode.I)) ShowAreaDebugInfo();
@@ -142,8 +142,8 @@ public class AreaManager : MonoBehaviour
     #region Public API
 
     /// <summary>
-    /// Maneja el click en un Ã¡rea desde collider 3D o AreaCard.
-    /// Actualiza dashboard y mueve cÃ¡mara segÃºn modo activo (libre/top-down).
+    /// Maneja el click en un área desde collider 3D o AreaCard.
+    /// Actualiza dashboard y mueve cámara según modo activo (libre/top-down).
     /// </summary>
     public void OnAreaClicked(GameObject areaObject)
     {
@@ -152,7 +152,7 @@ public class AreaManager : MonoBehaviour
         string areaKey = GetAreaKey(areaObject.name);
         if (!areaDataDict.ContainsKey(areaKey))
         {
-            QCLog.Warn($"No se encontraron datos para Ã¡rea: {areaKey}");
+            QCLog.Warn($"No se encontraron datos para área: {areaKey}");
             return;
         }
 
@@ -173,7 +173,7 @@ public class AreaManager : MonoBehaviour
         var predicciones = GeneratePredictions(data);
         dashboard.UpdateWithAreaData(data.displayName, kpis, predicciones);
 
-        // Mover cÃ¡mara segÃºn modo
+        // Mover cámara según modo
         Transform target = areaObject.transform;
 
         if (isInTopDownMode && topDownController != null)
@@ -182,17 +182,17 @@ public class AreaManager : MonoBehaviour
         }
         else
         {
-            // Vista libre: usar posiciÃ³n real registrada
+            // Vista libre: usar posición real registrada
             Vector3 focusPosition = realAreaPositions.ContainsKey(areaKey)
                 ? realAreaPositions[areaKey]
                 : areaObject.transform.position;
 
-            if (freeCameraController != null)
+            if (simsCameraController != null)
             {
-                freeCameraController.FocusOnArea(areaObject.transform, 25f);
+                simsCameraController.FocusOnArea(areaObject.transform, 25f);
             }
 
-            QCLog.Info($"Ãrea seleccionada: {data.displayName} @ {focusPosition}");
+            QCLog.Info($"Área seleccionada: {data.displayName} @ {focusPosition}");
         }
     }
 
@@ -209,7 +209,7 @@ public class AreaManager : MonoBehaviour
 
     /// <summary>
     /// Alterna entre vista libre (Sims) y top-down (mapa).
-    /// Coordina cÃ¡mara, cards, overlays y labels.
+    /// Coordina cámara, cards, overlays y labels.
     /// </summary>
     public void ToggleCameraMode()
     {
@@ -234,7 +234,7 @@ public class AreaManager : MonoBehaviour
                 cameraToggleText.text = "Vista: Mapa";
 
             NotifyManualLabelsUpdate();
-            QCLog.Info("ðŸ—ºï¸ Vista Top-Down activada");
+            QCLog.Info("🗺️ Vista Top-Down activada");
         }
         else
         {
@@ -249,12 +249,12 @@ public class AreaManager : MonoBehaviour
                 cameraToggleText.text = "Vista: Libre";
 
             NotifyManualLabelsUpdate();
-            QCLog.Info("ðŸŽ® Vista Libre activada");
+            QCLog.Info("🎮 Vista Libre activada");
         }
     }
 
     /// <summary>
-    /// Cierra el dashboard y retorna cÃ¡mara a home si estÃ¡ en top-down.
+    /// Cierra el dashboard y retorna cámara a home si está en top-down.
     /// </summary>
     public void CloseDashboard()
     {
@@ -268,7 +268,7 @@ public class AreaManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Obtiene los datos de un Ã¡rea por su clave.
+    /// Obtiene los datos de un área por su clave.
     /// </summary>
     public AreaData GetAreaData(string areaKey)
     {
@@ -276,7 +276,7 @@ public class AreaManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Retorna la lista de GameObjects de Ã¡reas.
+    /// Retorna la lista de GameObjects de áreas.
     /// </summary>
     public List<GameObject> GetAreaObjects() => areaObjects;
 
@@ -293,11 +293,11 @@ public class AreaManager : MonoBehaviour
         
         if (cachedMainCamera != null)
         {
-            freeCameraController = cachedMainCamera.GetComponent<FreeCameraController>();
+            simsCameraController = cachedMainCamera.GetComponent<SimsCameraController>();
         }
 
-        overlayPainter = FindObjectOfType<AreaOverlayPainter>();
-        labelsManager = FindObjectOfType<ManualLabelsManager>();
+        overlayPainter = FindFirstObjectByType<AreaOverlayPainter>();
+        labelsManager = FindFirstObjectByType<ManualLabelsManager>();
 
         QCLog.Info("Componentes cacheados en AreaManager");
     }
@@ -312,10 +312,10 @@ public class AreaManager : MonoBehaviour
             dashboard = FindFirstObjectByType<IndustrialDashboard>();
             if (dashboard == null)
             {
-                Debug.LogError("No se encontrÃ³ IndustrialDashboard en la escena");
+                Debug.LogError("No se encontró IndustrialDashboard en la escena");
                 return;
             }
-            QCLog.Info("Dashboard encontrado automÃ¡ticamente");
+            QCLog.Info("Dashboard encontrado automáticamente");
         }
 
         // Proveer callback para generar texto de detalles de KPIs
@@ -323,11 +323,11 @@ public class AreaManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Setup completo de Ã¡reas: encontrar, corregir posiciones, configurar colliders y cards.
+    /// Setup completo de áreas: encontrar, corregir posiciones, configurar colliders y cards.
     /// </summary>
     private void SetupAreas()
     {
-        // Buscar Ã¡reas automÃ¡ticamente si no hay ninguna asignada
+        // Buscar áreas automáticamente si no hay ninguna asignada
         if (areaObjects.Count == 0)
         {
             FindAreasAutomatically();
@@ -336,12 +336,12 @@ public class AreaManager : MonoBehaviour
         SetupAreaLayers();
         InitializePreciseColliders();
 
-        // Aplicar correcciÃ³n de posiciones si existe el fixer
+        // Aplicar corrección de posiciones si existe el fixer
         var fixer = FindFirstObjectByType<AreaPositionFixerV2>();
         if (fixer != null)
         {
             fixer.FixAreaPositionsAndChildren();
-            QCLog.Info("Posiciones de Ã¡reas corregidas antes de registrar");
+            QCLog.Info("Posiciones de áreas corregidas antes de registrar");
         }
 
         RegisterRealAreaPositions();
@@ -354,7 +354,7 @@ public class AreaManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Busca automÃ¡ticamente los GameObjects de Ã¡reas en la escena.
+    /// Busca automáticamente los GameObjects de áreas en la escena.
     /// </summary>
     private void FindAreasAutomatically()
     {
@@ -367,20 +367,20 @@ public class AreaManager : MonoBehaviour
             if (found != null)
             {
                 areaObjects.Add(found);
-                QCLog.Info($"âœ“ Ãrea encontrada: {found.name}");
+                QCLog.Info($"✓ Área encontrada: {found.name}");
             }
         }
     }
 
     /// <summary>
-    /// Asigna todas las Ã¡reas y sus hijos a la layer "Areas".
+    /// Asigna todas las áreas y sus hijos a la layer "Areas".
     /// </summary>
     private void SetupAreaLayers()
     {
         int areasLayer = LayerMask.NameToLayer("Areas");
         if (areasLayer == -1)
         {
-            Debug.LogError("Layer 'Areas' no existe. ConfigÃºrala en Project Settings > Tags and Layers.");
+            Debug.LogError("Layer 'Areas' no existe. Configúrala en Project Settings > Tags and Layers.");
             return;
         }
 
@@ -398,8 +398,8 @@ public class AreaManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Calcula y registra las posiciones reales (bounds center) de cada Ã¡rea.
-    /// Usado para focus preciso de cÃ¡mara.
+    /// Calcula y registra las posiciones reales (bounds center) de cada área.
+    /// Usado para focus preciso de cámara.
     /// </summary>
     private void RegisterRealAreaPositions()
     {
@@ -421,7 +421,7 @@ public class AreaManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Crea AreaCard component en cada Ã¡rea para UI de labels 3D.
+    /// Crea AreaCard component en cada área para UI de labels 3D.
     /// </summary>
     private void CreateAreaCards()
     {
@@ -444,7 +444,7 @@ public class AreaManager : MonoBehaviour
             else
             {
                 card.areaName = areaObj.name;
-                Debug.LogWarning($"No se encontraron datos para el Ã¡rea: {areaObj.name}");
+                Debug.LogWarning($"No se encontraron datos para el área: {areaObj.name}");
             }
 
             SetupAreaCollider(areaObj);
@@ -483,7 +483,7 @@ public class AreaManager : MonoBehaviour
 
         topDownController.ApplySettings(settings);
 
-        QCLog.Info($"[TopDown] Centro {plantCenter} | TamaÃ±o {plantSize} | Padding {fitPadding}");
+        QCLog.Info($"[TopDown] Centro {plantCenter} | Tamaño {plantSize} | Padding {fitPadding}");
     }
 
     private void CollectAreaCardsAuto()
@@ -575,8 +575,8 @@ public class AreaManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Notifica a ManualLabelsManager del cambio de modo de cÃ¡mara.
-    /// Labels ajustan su visibilidad y comportamiento segÃºn vista libre/top-down.
+    /// Notifica a ManualLabelsManager del cambio de modo de cámara.
+    /// Labels ajustan su visibilidad y comportamiento según vista libre/top-down.
     /// </summary>
     private void NotifyManualLabelsUpdate()
     {
@@ -590,7 +590,7 @@ public class AreaManager : MonoBehaviour
         else
         {
             // Fallback: buscar labels directamente si no hay manager
-            var manualLabels = FindObjectsOfType<ManualAreaLabel>();
+            var manualLabels = FindObjectsByType<ManualAreaLabel>(FindObjectsSortMode.InstanceID);
             foreach (var label in manualLabels)
             {
                 if (label != null)
@@ -608,7 +608,7 @@ public class AreaManager : MonoBehaviour
     #region Internal Helpers - UI Toggle Button
 
     /// <summary>
-    /// Construye el botÃ³n UI para alternar entre vista libre y top-down.
+    /// Construye el botón UI para alternar entre vista libre y top-down.
     /// </summary>
     private void BuildCameraToggleButton()
     {
@@ -641,7 +641,7 @@ public class AreaManager : MonoBehaviour
         shadow.effectDistance = new Vector2(0, -2);
         shadow.effectColor = new Color(0, 0, 0, 0.18f);
 
-        // Configurar botÃ³n y colores
+        // Configurar botón y colores
         cameraToggleButton = buttonObj.GetComponent<Button>();
         var colorBlock = cameraToggleButton.colors;
         colorBlock.normalColor = image.color;
@@ -650,7 +650,7 @@ public class AreaManager : MonoBehaviour
         colorBlock.fadeDuration = 0.08f;
         cameraToggleButton.colors = colorBlock;
 
-        // Crear texto del botÃ³n
+        // Crear texto del botón
         GameObject textObj = new GameObject("Text", typeof(RectTransform), typeof(Text));
         textObj.transform.SetParent(buttonObj.transform, false);
         
@@ -679,7 +679,7 @@ public class AreaManager : MonoBehaviour
         Texture2D texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
         Color[] pixels = new Color[width * height];
 
-        // Helper local: determina si un pixel estÃ¡ dentro del Ã¡rea redondeada
+        // Helper local: determina si un pixel está dentro del área redondeada
         bool IsInsideRounded(int x, int y, int w, int h, int r)
         {
             bool isCorner = (x < r && y < r) || 
@@ -748,10 +748,10 @@ public class AreaManager : MonoBehaviour
 
     private void EnsureEventSystem()
     {
-        if (FindObjectOfType<EventSystem>() == null)
+        if (FindFirstObjectByType<EventSystem>() == null)
         {
             new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
-            QCLog.Info("EventSystem creado automÃ¡ticamente para UI");
+            QCLog.Info("EventSystem creado automáticamente para UI");
         }
     }
 
@@ -812,7 +812,7 @@ public class AreaManager : MonoBehaviour
 
     /// <summary>
     /// Configura colliders precisos usando datos precalculados en InitializePreciseColliders.
-    /// MÃ©todo invocable con F12 para debugging.
+    /// Método invocable con F12 para debugging.
     /// </summary>
     private void SetupPreciseAreaColliders()
     {
@@ -852,12 +852,12 @@ public class AreaManager : MonoBehaviour
             preciseCollider.size = localSize;
             preciseCollider.isTrigger = false;
 
-            QCLog.Info($"[PreciseColliders] {areaKey}: Centro local {localCenter}, TamaÃ±o {localSize}");
+            QCLog.Info($"[PreciseColliders] {areaKey}: Centro local {localCenter}, Tamaño {localSize}");
         }
     }
 
     /// <summary>
-    /// MÃ©todo mejorado que soporta Ã¡reas con mÃºltiples cubos (caso especial VBL1).
+    /// Método mejorado que soporta áreas con múltiples cubos (caso especial VBL1).
     /// Invocable con F11 para debugging.
     /// </summary>
     private void SetupMultipleCubeColliders()
@@ -868,7 +868,7 @@ public class AreaManager : MonoBehaviour
 
             string areaKey = GetAreaKey(areaObj.name);
 
-            // Remover colliders existentes del Ã¡rea
+            // Remover colliders existentes del área
             var existingColliders = areaObj.GetComponents<Collider>();
             foreach (var col in existingColliders)
             {
@@ -878,7 +878,7 @@ public class AreaManager : MonoBehaviour
                     DestroyImmediate(col);
             }
 
-            // VBL1 necesita mÃºltiples colliders
+            // VBL1 necesita múltiples colliders
             if (areaKey == "VBL1")
             {
                 SetupVBL1MultipleColliders(areaObj);
@@ -918,12 +918,12 @@ public class AreaManager : MonoBehaviour
                 colliderObj.layer = areasLayer;
             }
 
-            QCLog.Info($"[VBL1] Collider {cubeData.name}: Centro {cubeData.center}, TamaÃ±o {cubeData.size}");
+            QCLog.Info($"[VBL1] Collider {cubeData.name}: Centro {cubeData.center}, Tamaño {cubeData.size}");
         }
     }
 
     /// <summary>
-    /// Configura un collider Ãºnico para Ã¡reas estÃ¡ndar (ATHONDA, VCTL4, BUZZERL2).
+    /// Configura un collider único para áreas estándar (ATHONDA, VCTL4, BUZZERL2).
     /// </summary>
     private void SetupSingleCubeCollider(GameObject areaObj, string areaKey)
     {
@@ -950,12 +950,12 @@ public class AreaManager : MonoBehaviour
             size.z / Mathf.Max(0.001f, Mathf.Abs(lossyScale.z))
         );
 
-        QCLog.Info($"[SingleCube] {areaKey}: Centro local {box.center}, TamaÃ±o {box.size}");
+        QCLog.Info($"[SingleCube] {areaKey}: Centro local {box.center}, Tamaño {box.size}");
     }
 
     /// <summary>
-    /// Configura colliders basÃ¡ndose en los bounds de cubos hijos especÃ­ficos.
-    /// MÃ©todo alternativo que detecta automÃ¡ticamente dimensiones.
+    /// Configura colliders basándose en los bounds de cubos hijos específicos.
+    /// Método alternativo que detecta automáticamente dimensiones.
     /// </summary>
     private void SetupCollidersByChildCubes()
     {
@@ -971,7 +971,7 @@ public class AreaManager : MonoBehaviour
             Transform cubeChild = areaObj.transform.Find(colliderData.cubeChildName);
             if (cubeChild == null)
             {
-                QCLog.Warn($"[ChildCube] No se encontrÃ³ {colliderData.cubeChildName} en {areaObj.name}");
+                QCLog.Warn($"[ChildCube] No se encontró {colliderData.cubeChildName} en {areaObj.name}");
                 continue;
             }
 
@@ -1017,8 +1017,8 @@ public class AreaManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Normaliza colliders: asegura que no sean trigger, estÃ©n en layer correcta,
-    /// y tengan tamaÃ±os vÃ¡lidos (no negativos).
+    /// Normaliza colliders: asegura que no sean trigger, estén en layer correcta,
+    /// y tengan tamaños válidos (no negativos).
     /// </summary>
     private void SanitizeAreaColliders()
     {
@@ -1030,14 +1030,14 @@ public class AreaManager : MonoBehaviour
 
             foreach (var col in areaObj.GetComponentsInChildren<Collider>(true))
             {
-                col.isTrigger = false; // Click sÃ³lido
+                col.isTrigger = false; // Click sólido
                 col.gameObject.layer = areasLayer;
 
                 var box = col as BoxCollider;
                 if (box != null)
                 {
                     var size = box.size;
-                    // CRÃTICO: nunca permitir tamaÃ±os negativos + altura mÃ­nima
+                    // CRÍTICO: nunca permitir tamaños negativos + altura mínima
                     box.size = new Vector3(
                         Mathf.Abs(size.x), 
                         Mathf.Max(1f, Mathf.Abs(size.y)), 
@@ -1049,11 +1049,11 @@ public class AreaManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Desactiva raycast en labels para que no bloqueen clicks a Ã¡reas 3D.
+    /// Desactiva raycast en labels para que no bloqueen clicks a áreas 3D.
     /// </summary>
     private void DisableLabelRaycastsAndLayer()
     {
-        var canvases = FindObjectsOfType<Canvas>(true);
+        var canvases = FindObjectsByType<Canvas>(FindObjectsInactive.Include, FindObjectsSortMode.InstanceID);
         
         foreach (var canvas in canvases)
         {
@@ -1070,7 +1070,7 @@ public class AreaManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Configura collider bÃ¡sico para un Ã¡rea si no existe ninguno.
+    /// Configura collider básico para un área si no existe ninguno.
     /// Fallback usado en CreateAreaCards.
     /// </summary>
     private void SetupAreaCollider(GameObject areaObj)
@@ -1105,8 +1105,8 @@ public class AreaManager : MonoBehaviour
     #region Internal Helpers - Click Handling
 
     /// <summary>
-    /// Detecta clicks en Ã¡reas 3D usando raycast.
-    /// Prioriza colliders fÃ­sicos (precisiÃ³n), luego bounds de renderers (fallback).
+    /// Detecta clicks en áreas 3D usando raycast.
+    /// Prioriza colliders físicos (precisión), luego bounds de renderers (fallback).
     /// </summary>
     private void HandleAreaClickSimplified()
     {
@@ -1115,7 +1115,7 @@ public class AreaManager : MonoBehaviour
         Ray ray = cachedMainCamera.ScreenPointToRay(Input.mousePosition);
         int layerMask = LayerMask.GetMask("Areas");
 
-        // 1) Raycast a colliders primero (mÃ©todo mÃ¡s preciso)
+        // 1) Raycast a colliders primero (método más preciso)
         var hits = Physics.RaycastAll(ray, 2000f, layerMask);
         if (hits.Length > 0)
         {
@@ -1133,7 +1133,7 @@ public class AreaManager : MonoBehaviour
             }
         }
 
-        // 2) Fallback a bounds por renderers (por si falta algÃºn collider)
+        // 2) Fallback a bounds por renderers (por si falta algún collider)
         if (areaBoundsByObject != null && areaBoundsByObject.Count > 0)
         {
             GameObject bestArea = null;
@@ -1158,7 +1158,7 @@ public class AreaManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Verifica si el cursor estÃ¡ sobre UI que debe bloquear clicks al mundo 3D.
+    /// Verifica si el cursor está sobre UI que debe bloquear clicks al mundo 3D.
     /// </summary>
     private bool IsPointerOverBlockingUI()
     {
@@ -1186,7 +1186,7 @@ public class AreaManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Encuentra el GameObject de Ã¡rea padre para un GameObject clickeado.
+    /// Encuentra el GameObject de área padre para un GameObject clickeado.
     /// </summary>
     private GameObject FindAreaForGameObject(GameObject clickedObj)
     {
@@ -1199,7 +1199,7 @@ public class AreaManager : MonoBehaviour
             if (areaObj == clickedObj) return areaObj;
         }
 
-        // Buscar en jerarquÃ­a padre
+        // Buscar en jerarquía padre
         Transform current = clickedObj.transform;
         while (current != null)
         {
@@ -1237,12 +1237,12 @@ public class AreaManager : MonoBehaviour
     #region Internal Helpers - Data Generation
 
     /// <summary>
-    /// Genera texto detallado de KPI para dashboard segÃºn Ã¡rea y mÃ©trica.
-    /// Incluye contexto operacional especÃ­fico por tipo de KPI.
+    /// Genera texto detallado de KPI para dashboard según área y métrica.
+    /// Incluye contexto operacional específico por tipo de KPI.
     /// </summary>
     private string GenerateDetailText(string areaDisplayName, KPIData kpi)
     {
-        // Buscar Ã¡rea por displayName
+        // Buscar área por displayName
         string areaKey = null;
         foreach (var kvp in areaDataDict)
         {
@@ -1256,36 +1256,36 @@ public class AreaManager : MonoBehaviour
         if (string.IsNullOrEmpty(areaKey) || !areaDataDict.ContainsKey(areaKey))
         {
             string unit = string.IsNullOrEmpty(kpi.unit) ? "%" : kpi.unit;
-            return $"Detalle de {kpi.name}\nÃrea: {areaDisplayName}\nActual: {kpi.value:F1}{unit}";
+            return $"Detalle de {kpi.name}\nÁrea: {areaDisplayName}\nActual: {kpi.value:F1}{unit}";
         }
 
         var data = areaDataDict[areaKey];
         string kpiName = (kpi.name ?? "").ToLowerInvariant();
 
-        // Contexto especÃ­fico por tipo de KPI
+        // Contexto específico por tipo de KPI
         if (kpiName.Contains("delivery"))
         {
-            return $"Delivery â€“ {data.displayName}\n" +
+            return $"Delivery – {data.displayName}\n" +
                    $"Actual: {data.delivery:F1}%\n" +
-                   $"ðŸ“¦ Ã“rdenes planificadas: {GetEstOrders(data.delivery)}\n" +
-                   $"âš  Incumplimientos: {GetIncidences(data.delivery)}\n" +
-                   $"â± Retraso promedio: {GetDelayMins(data.delivery)} min\n" +
-                   $"AcciÃ³n: asegurar JIT, balanceo de lÃ­nea y seguimiento de transporte.";
+                   $"📦 Órdenes planificadas: {GetEstOrders(data.delivery)}\n" +
+                   $"⚠ Incumplimientos: {GetIncidences(data.delivery)}\n" +
+                   $"⏱ Retraso promedio: {GetDelayMins(data.delivery)} min\n" +
+                   $"Acción: asegurar JIT, balanceo de línea y seguimiento de transporte.";
         }
 
         if (kpiName.Contains("quality"))
         {
-            return $"Quality â€“ {data.displayName}\n" +
+            return $"Quality – {data.displayName}\n" +
                    $"Actual: {data.quality:F1}%\n" +
-                   $"ðŸ“Š PPM estimado: {GetPpm(data.quality)}\n" +
-                   $"ðŸ” Top defectos: {GetTopDefects()}\n" +
-                   $"ðŸ”§ Retrabajos/dÃ­a: {GetReworks(data.quality)}\n" +
-                   $"AcciÃ³n: Gemba + 5-Why sobre el defecto principal; contenciÃ³n si PPM > objetivo.";
+                   $"📊 PPM estimado: {GetPpm(data.quality)}\n" +
+                   $"🔍 Top defectos: {GetTopDefects()}\n" +
+                   $"🔧 Retrabajos/día: {GetReworks(data.quality)}\n" +
+                   $"Acción: Gemba + 5-Why sobre el defecto principal; contención si PPM > objetivo.";
         }
 
-        // GenÃ©rico para otros KPIs
+        // Genérico para otros KPIs
         string unit2 = string.IsNullOrEmpty(kpi.unit) ? "%" : kpi.unit;
-        return $"Detalle de {kpi.name}\nÃrea: {data.displayName}\nActual: {kpi.value:F1}{unit2}";
+        return $"Detalle de {kpi.name}\nÁrea: {data.displayName}\nActual: {kpi.value:F1}{unit2}";
     }
 
     // Helpers de contexto operacional
@@ -1301,13 +1301,13 @@ public class AreaManager : MonoBehaviour
     private int GetPpm(float quality) => 
         Mathf.Clamp(Mathf.RoundToInt((100f - quality) * 120f), 0, 12000);
     
-    private string GetTopDefects() => "Faltante, CosmÃ©tico, Torque";
+    private string GetTopDefects() => "Faltante, Cosmético, Torque";
     
     private int GetReworks(float quality) => 
         Mathf.Clamp(Mathf.RoundToInt((100f - quality) / 5f), 0, 6);
 
     /// <summary>
-    /// Genera predicciones/alertas basadas en mÃ©tricas del Ã¡rea.
+    /// Genera predicciones/alertas basadas en métricas del área.
     /// Usado para mostrar avisos contextuales en dashboard.
     /// </summary>
     private List<string> GeneratePredictions(AreaData data)
@@ -1315,26 +1315,26 @@ public class AreaManager : MonoBehaviour
         List<string> predictions = new List<string>();
 
         if (data.delivery < 50)
-            predictions.Add("ðŸš¨ CRÃTICO: Problemas severos de entrega detectados");
+            predictions.Add("🚨 CRÍTICO: Problemas severos de entrega detectados");
         else if (data.delivery < 80)
-            predictions.Add("âš ï¸ Delivery bajo riesgo - OptimizaciÃ³n recomendada");
+            predictions.Add("⚠️ Delivery bajo riesgo - Optimización recomendada");
 
         if (data.quality < 70)
-            predictions.Add("ðŸ” Control de calidad requiere intervenciÃ³n");
+            predictions.Add("🔍 Control de calidad requiere intervención");
 
         if (data.trainingDNA < 70)
-            predictions.Add("ðŸ“š Personal requiere capacitaciÃ³n urgente");
+            predictions.Add("📚 Personal requiere capacitación urgente");
 
         if (data.overallResult < 50)
-            predictions.Add("ðŸ”´ ZONA ROJA: IntervenciÃ³n ejecutiva inmediata");
+            predictions.Add("🔴 ZONA ROJA: Intervención ejecutiva inmediata");
         else if (data.overallResult >= 90)
-            predictions.Add("ðŸŸ¢ ZONA OPTIMUS: Benchmark para otras Ã¡reas");
+            predictions.Add("🟢 ZONA OPTIMUS: Benchmark para otras áreas");
 
         return predictions;
     }
 
     /// <summary>
-    /// Convierte nombre de GameObject a clave interna de Ã¡rea.
+    /// Convierte nombre de GameObject a clave interna de área.
     /// </summary>
     private string GetAreaKey(string objectName)
     {
@@ -1357,7 +1357,7 @@ public class AreaManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Inicializa datos estÃ¡ticos de todas las Ã¡reas.
+    /// Inicializa datos estáticos de todas las áreas.
     /// Integra AppleTheme para colores consistentes.
     /// </summary>
     private void InitializeAreaData()
@@ -1428,12 +1428,12 @@ public class AreaManager : MonoBehaviour
     #region Debug
 
     /// <summary>
-    /// [F8] Muestra posiciones actuales vs registradas de todas las Ã¡reas.
+    /// [F8] Muestra posiciones actuales vs registradas de todas las áreas.
     /// </summary>
     [ContextMenu("Debug Posiciones Actuales")]
     private void DebugCurrentPositions()
     {
-        Debug.Log("=== POSICIONES ACTUALES DE ÃREAS ===");
+        Debug.Log("=== POSICIONES ACTUALES DE ÁREAS ===");
         
         foreach (GameObject areaObj in areaObjects)
         {
@@ -1456,7 +1456,7 @@ public class AreaManager : MonoBehaviour
 
     /// <summary>
     /// [F10] Detecta y muestra dimensiones reales de cubos hijos.
-    /// Ãštil para ajustar InitializePreciseColliders.
+    /// Útil para ajustar InitializePreciseColliders.
     /// </summary>
     [ContextMenu("Detectar Dimensiones Reales")]
     private void DetectRealCubeDimensions()
@@ -1481,7 +1481,7 @@ public class AreaManager : MonoBehaviour
                         Debug.Log($"[Detect] - {child.name}:");
                         Debug.Log($"[Detect]   Posicion: {child.position}");
                         Debug.Log($"[Detect]   Bounds Centro: {bounds.center}");
-                        Debug.Log($"[Detect]   Bounds TamaÃ±o: {bounds.size}");
+                        Debug.Log($"[Detect]   Bounds Tamaño: {bounds.size}");
                         Debug.Log($"[Detect]   Transform Scale: {child.localScale}");
                     }
                 }
@@ -1492,18 +1492,18 @@ public class AreaManager : MonoBehaviour
     }
 
     /// <summary>
-    /// [I] Muestra informaciÃ³n bÃ¡sica de todas las Ã¡reas.
+    /// [I] Muestra información básica de todas las áreas.
     /// </summary>
     private void ShowAreaDebugInfo()
     {
-        Debug.Log("=== INFO DE ÃREAS ===");
+        Debug.Log("=== INFO DE ÁREAS ===");
         
         foreach (GameObject areaObj in areaObjects)
         {
             if (areaObj == null) continue;
             
             string key = GetAreaKey(areaObj.name);
-            Debug.Log($"Ãrea: {areaObj.name} (Key: {key}) - PosiciÃ³n: {areaObj.transform.position}");
+            Debug.Log($"Área: {areaObj.name} (Key: {key}) - Posición: {areaObj.transform.position}");
         }
     }
 

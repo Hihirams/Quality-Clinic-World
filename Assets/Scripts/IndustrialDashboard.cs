@@ -1,4 +1,4 @@
-Ôªøusing System;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -9,10 +9,10 @@ public class IndustrialDashboard : MonoBehaviour
 
 
 
-    [Header("Referencias de UI - Se crean autom√°ticamente")]
+    [Header("Referencias de UI - Se crean autom·ticamente")]
     private Canvas mainCanvas;
 
-    [Header("Configuraci√≥n de Colores - EXACTOS de la imagen")]
+    [Header("ConfiguraciÛn de Colores - EXACTOS de la imagen")]
     public Color primaryColor = new Color(0.2f, 0.6f, 1f, 1f);        // Azul KPIs
     public Color secondaryColor = new Color(1f, 1f, 1f, 1f);          // Fondo blanco puro
     public Color accentColor = new Color(0.0f, 0.8f, 0.4f, 1f);       // Verde
@@ -20,11 +20,11 @@ public class IndustrialDashboard : MonoBehaviour
     public Color dangerColor = new Color(0.9f, 0.3f, 0.3f, 1f);       // Rojo
     public Color textDarkColor = new Color(0.2f, 0.2f, 0.2f, 1f);     // Texto oscuro
     public Color progressBgColor = new Color(0.88f, 0.88f, 0.88f, 1f);// Fondo barra gris claro
-    public Color lightGrayColor = new Color(0.95f, 0.95f, 0.95f, 1f); // Bot√≥n pill
+    public Color lightGrayColor = new Color(0.95f, 0.95f, 0.95f, 1f); // BotÛn pill
     public Color panelGrayColor = new Color(0.45f, 0.45f, 0.45f, 1f); // Fondo panel gris
 
     // --- Estilo Apple para el panel de detalle ---
-    private Transform detailContentRoot; // contenedor donde pintamos el contenido din√°mico
+    private Transform detailContentRoot; // contenedor donde pintamos el contenido din·mico
     public Color subtleDivider = new Color(0.92f, 0.92f, 0.95f, 1f);
     public Color labelMuted = new Color(0.45f, 0.45f, 0.5f, 1f);
     public Color pillBg = new Color(0.96f, 0.96f, 0.98f, 1f);
@@ -41,14 +41,14 @@ public class IndustrialDashboard : MonoBehaviour
     private Text detailAreaText;
     private Text detailBodyText; // fallback de texto simple
 
-    [Header("Configuraci√≥n de Comportamiento")]
+    [Header("ConfiguraciÛn de Comportamiento")]
     public bool showOnStart = false;
     public bool enableDebugMode = true;
 
     public event System.Action OnHidden;
 
-    // === API para detalle din√°mico ===
-    // Asigna esto desde otro script para generar el texto del detalle por (√°rea, KPI).
+    // === API para detalle din·mico ===
+    // Asigna esto desde otro script para generar el texto del detalle por (·rea, KPI).
     // Si es null, se usa un texto por defecto.
     public Func<string, KPIData, string> ProvideDetail;
 
@@ -56,16 +56,16 @@ public class IndustrialDashboard : MonoBehaviour
     [Header("Datos del Dashboard")]
     public List<KPIData> kpisData = new List<KPIData>
     {
-        new KPIData("Selecciona un √°rea", 0f, ""),
+        new KPIData("Selecciona un ·rea", 0f, ""),
         new KPIData("para ver los KPIs", 0f, ""),
         new KPIData("correspondientes", 0f, "")
     };
 
     public List<string> prediccionesData = new List<string>
     {
-        "Selecciona un √°rea para ver predicciones espec√≠ficas",
-        "Las predicciones se generar√°n autom√°ticamente",
-        "basadas en los datos de rendimiento del √°rea"
+        "Selecciona un ·rea para ver predicciones especÌficas",
+        "Las predicciones se generar·n autom·ticamente",
+        "basadas en los datos de rendimiento del ·rea"
     };
 
     // Variables de control
@@ -74,7 +74,7 @@ public class IndustrialDashboard : MonoBehaviour
 
     // Sprites para bordes redondeados
     private Sprite roundedRectSprite;
-    private Sprite veryRoundedSprite; // Para el panel principal m√°s redondeado
+    private Sprite veryRoundedSprite; // Para el panel principal m·s redondeado
 
     void Start()
     {
@@ -91,14 +91,14 @@ public class IndustrialDashboard : MonoBehaviour
         if (!showOnStart)
         {
             HideInterface();
-            Debug.Log("‚úì Dashboard iniciado pero ocultado (esperando selecci√≥n de √°rea)");
+            Debug.Log("? Dashboard iniciado pero ocultado (esperando selecciÛn de ·rea)");
         }
     }
 
     void CreateRoundedSprites()
     {
         roundedRectSprite = CreateRoundedRectSprite(6);
-        veryRoundedSprite = CreateRoundedRectSprite(16); // Panel principal m√°s redondeado
+        veryRoundedSprite = CreateRoundedRectSprite(16); // Panel principal m·s redondeado
     }
 
     Sprite CreateRoundedRectSprite(int cornerRadius = 6)
@@ -158,7 +158,7 @@ public class IndustrialDashboard : MonoBehaviour
         if (mainCanvas != null)
         {
             mainCanvas.gameObject.SetActive(true);
-            Debug.Log("‚úì Dashboard mostrado");
+            Debug.Log("? Dashboard mostrado");
         }
     }
 
@@ -170,13 +170,13 @@ public class IndustrialDashboard : MonoBehaviour
 
         UpdateAreaTitle();
 
-        // Al cambiar de √°rea, cerramos el panel de detalle para no mezclar contextos.
+        // Al cambiar de ·rea, cerramos el panel de detalle para no mezclar contextos.
         HideDetailPanel();
 
         RefreshPanels();
         ShowInterface();
 
-        Debug.Log($"‚úì Dashboard actualizado con datos de: {areaName}");
+        Debug.Log($"? Dashboard actualizado con datos de: {areaName}");
     }
 
     void UpdateAreaTitle()
@@ -184,7 +184,7 @@ public class IndustrialDashboard : MonoBehaviour
         if (areaTitle != null)
         {
             Text titleText = areaTitle.GetComponent<Text>();
-            if (titleText != null) titleText.text = $"√ÅREA: {currentAreaName.ToUpper()}";
+            if (titleText != null) titleText.text = $"¡REA: {currentAreaName.ToUpper()}";
         }
     }
 
@@ -226,18 +226,18 @@ public class IndustrialDashboard : MonoBehaviour
             scaler.matchWidthOrHeight = 0.5f;
 
             var graphicRaycaster = canvasObj.AddComponent<GraphicRaycaster>();
-            // CR√çTICO: Hacer que solo intercepte elementos espec√≠ficos
+            // CRÕTICO: Hacer que solo intercepte elementos especÌficos
             graphicRaycaster.blockingObjects = GraphicRaycaster.BlockingObjects.None;
 
-            Debug.Log("‚úì Canvas principal creado autom√°ticamente (UI_Canvas)");
+            Debug.Log("? Canvas principal creado autom·ticamente (UI_Canvas)");
         }
 
-        if (FindObjectOfType<EventSystem>() == null)
+        if (FindFirstObjectByType<EventSystem>() == null)
         {
             GameObject es = new GameObject("EventSystem");
             es.AddComponent<EventSystem>();
             es.AddComponent<StandaloneInputModule>();
-            Debug.Log("‚úì EventSystem creado autom√°ticamente");
+            Debug.Log("? EventSystem creado autom·ticamente");
         }
     }
 
@@ -258,7 +258,7 @@ public class IndustrialDashboard : MonoBehaviour
         panelImage.color = panelGrayColor;
         panelImage.sprite = veryRoundedSprite;
         panelImage.type = Image.Type.Sliced;
-        // CR√çTICO: El panel de fondo NO debe interceptar clicks
+        // CRÕTICO: El panel de fondo NO debe interceptar clicks
         panelImage.raycastTarget = false;
 
         RectTransform panelRect = mainPanel.GetComponent<RectTransform>();
@@ -270,7 +270,7 @@ public class IndustrialDashboard : MonoBehaviour
     {
         areaTitle = CreateUIGameObject("AreaTitle", mainPanel.transform);
         Text titleText = areaTitle.AddComponent<Text>();
-        titleText.text = $"√ÅREA: {currentAreaName.ToUpper()}";
+        titleText.text = $"¡REA: {currentAreaName.ToUpper()}";
         titleText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         titleText.fontSize = 20;
         titleText.fontStyle = FontStyle.Bold;
@@ -300,7 +300,7 @@ public class IndustrialDashboard : MonoBehaviour
 
         GameObject closeTextObj = CreateUIGameObject("Text", closeButtonObj.transform);
         Text closeText = closeTextObj.AddComponent<Text>();
-        closeText.text = "‚úï CERRAR";
+        closeText.text = "? CERRAR";
         closeText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         closeText.fontSize = 11;
         closeText.fontStyle = FontStyle.Bold;
@@ -312,7 +312,7 @@ public class IndustrialDashboard : MonoBehaviour
         closeTextRect.anchoredPosition = Vector2.zero;
 
         closeButton.onClick.AddListener(() => {
-            AreaManager areaManager = FindObjectOfType<AreaManager>();
+            AreaManager areaManager = FindFirstObjectByType<AreaManager>();
             if (areaManager != null)
             {
                 areaManager.CloseDashboard();
@@ -479,28 +479,28 @@ public class IndustrialDashboard : MonoBehaviour
         valueText.alignment = TextAnchor.MiddleRight;
         valueObj.GetComponent<RectTransform>().sizeDelta = new Vector2(44, 28);
 
-        // En IndustrialDashboard.cs, en el m√©todo CreateModernKPIElement, 
-        // reemplaza la secci√≥n del bot√≥n "Ver detalle":
+        // En IndustrialDashboard.cs, en el mÈtodo CreateModernKPIElement, 
+        // reemplaza la secciÛn del botÛn "Ver detalle":
 
-        // Bot√≥n detalle - AGREGAR DESPU√âS DE LA L√çNEA EXISTENTE
+        // BotÛn detalle - AGREGAR DESPU…S DE LA LÕNEA EXISTENTE
         GameObject detailBtnObj = CreateUIGameObject("Btn_VerDetalle", kpiElement.transform);
         var detailBtn = detailBtnObj.AddComponent<Button>();
         var detailImg = detailBtnObj.AddComponent<Image>();
         detailImg.sprite = roundedRectSprite;
         detailImg.type = Image.Type.Sliced;
         detailImg.color = lightGrayColor;
-        detailImg.raycastTarget = true;     // ‚Üê importante
+        detailImg.raycastTarget = true;     // ? importante
 
         detailBtnObj.GetComponent<RectTransform>().sizeDelta = new Vector2(96, 28);
 
         var detailTxtObj = CreateUIGameObject("Text", detailBtnObj.transform);
         var detailTxt = detailTxtObj.AddComponent<Text>();
-        detailTxt.text = "Ver detalle ‚Ä∫";
+        detailTxt.text = "Ver detalle õ";
         detailTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         detailTxt.fontSize = 12;
         detailTxt.color = textDarkColor;
         detailTxt.alignment = TextAnchor.MiddleCenter;
-        detailTxt.raycastTarget = false;    // ‚Üê el texto NO intercepta clics
+        detailTxt.raycastTarget = false;    // ? el texto NO intercepta clics
         detailTxtObj.GetComponent<RectTransform>().sizeDelta = new Vector2(96, 28);
 
         // Hover (ya lo tienes implementado):
@@ -512,8 +512,8 @@ public class IndustrialDashboard : MonoBehaviour
             ShowKPIDetail(kpi);
         });
 
-        // CR√çTICO: Hacer que el bot√≥n NO bloquee clicks al mundo 3D
-        // (esto lo maneja el m√©todo IsPointerOverBlockingUI actualizado)
+        // CRÕTICO: Hacer que el botÛn NO bloquee clicks al mundo 3D
+        // (esto lo maneja el mÈtodo IsPointerOverBlockingUI actualizado)
     }
 
     void CreateOverallResultElement(GameObject parent)
@@ -574,7 +574,7 @@ public class IndustrialDashboard : MonoBehaviour
         valueText.alignment = TextAnchor.MiddleRight;
         valueObj.GetComponent<RectTransform>().sizeDelta = new Vector2(44, 28);
 
-        // Bot√≥n detalle
+        // BotÛn detalle
         GameObject detailBtnObj = CreateUIGameObject("Btn_VerDetalle", overallElement.transform);
         Button detailBtn = detailBtnObj.AddComponent<Button>();
         Image detailBtnImg = detailBtnObj.AddComponent<Image>();
@@ -585,7 +585,7 @@ public class IndustrialDashboard : MonoBehaviour
 
         GameObject detailTxtObj = CreateUIGameObject("Text", detailBtnObj.transform);
         Text detailTxt = detailTxtObj.AddComponent<Text>();
-        detailTxt.text = "Ver detalle ‚Ä∫";
+        detailTxt.text = "Ver detalle õ";
         detailTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         detailTxt.fontSize = 12;
         detailTxt.color = textDarkColor;
@@ -656,7 +656,7 @@ public class IndustrialDashboard : MonoBehaviour
 
         GameObject iconObj = CreateUIGameObject("Icon", topRow.transform);
         Text iconText = iconObj.AddComponent<Text>();
-        iconText.text = "‚ö†";
+        iconText.text = "?";
         iconText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         iconText.fontSize = 22;
         iconText.color = dangerColor;
@@ -679,7 +679,7 @@ public class IndustrialDashboard : MonoBehaviour
 
         GameObject recomendacionObj = CreateUIGameObject("Recomendacion", bottomRow.transform);
         Text recomendacionText = recomendacionObj.AddComponent<Text>();
-        recomendacionText.text = "‚Ä¢ Optimizaci√≥n recomendada para mejorar el rendimiento del √°rea";
+        recomendacionText.text = "ï OptimizaciÛn recomendada para mejorar el rendimiento del ·rea";
         recomendacionText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         recomendacionText.fontSize = 12;
         recomendacionText.color = accentColor;
@@ -771,13 +771,13 @@ public class IndustrialDashboard : MonoBehaviour
         }
     }
 
-    // En IndustrialDashboard.cs, reemplaza el m√©todo AddModernButtonHoverEffects:
+    // En IndustrialDashboard.cs, reemplaza el mÈtodo AddModernButtonHoverEffects:
 
     void AddModernButtonHoverEffects(Button button, Color originalColor)
     {
         if (button == null) return;
 
-        // Asegurar que tenga sprite (cr√≠tico para el hover)
+        // Asegurar que tenga sprite (crÌtico para el hover)
         Image buttonImage = button.GetComponent<Image>();
         if (buttonImage != null && buttonImage.sprite == null)
         {
@@ -788,7 +788,7 @@ public class IndustrialDashboard : MonoBehaviour
         ColorBlock colors = button.colors;
         colors.normalColor = originalColor;
 
-        // Hover m√°s visible
+        // Hover m·s visible
         colors.highlightedColor = new Color(
             originalColor.r * 0.85f,
             originalColor.g * 0.85f,
@@ -796,7 +796,7 @@ public class IndustrialDashboard : MonoBehaviour
             1f
         );
 
-        // Click m√°s oscuro
+        // Click m·s oscuro
         colors.pressedColor = new Color(
             originalColor.r * 0.70f,
             originalColor.g * 0.70f,
@@ -812,7 +812,7 @@ public class IndustrialDashboard : MonoBehaviour
         );
 
         colors.colorMultiplier = 1f;
-        colors.fadeDuration = 0.15f; // Transici√≥n m√°s suave
+        colors.fadeDuration = 0.15f; // TransiciÛn m·s suave
 
         button.colors = colors;
 
@@ -820,7 +820,7 @@ public class IndustrialDashboard : MonoBehaviour
         button.interactable = true;
 
         if (enableDebugMode)
-            Debug.Log($"Hover effects aplicados a bot√≥n: {button.name}");
+            Debug.Log($"Hover effects aplicados a botÛn: {button.name}");
     }
 
     Color GetModernProgressBarColor(float value)
@@ -857,10 +857,10 @@ public class IndustrialDashboard : MonoBehaviour
 
         RectTransform rect = detailPanel.GetComponent<RectTransform>();
         rect.sizeDelta = new Vector2(420, 700);
-        // MainPanel ancho 540 ‚Üí mitad = 270; margen 30 px; mitad del detail 210
+        // MainPanel ancho 540 ? mitad = 270; margen 30 px; mitad del detail 210
         rect.anchoredPosition = new Vector2(270 + 30 + 210, 0);
 
-        // T√≠tulo
+        // TÌtulo
         GameObject titleObj = CreateUIGameObject("Title", detailPanel.transform);
         detailTitleText = titleObj.AddComponent<Text>();
         detailTitleText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
@@ -871,7 +871,7 @@ public class IndustrialDashboard : MonoBehaviour
         titleObj.GetComponent<RectTransform>().sizeDelta = new Vector2(360, 34);
         titleObj.GetComponent<RectTransform>().anchoredPosition = new Vector2(-10, 310);
 
-        // Subt√≠tulo (√°rea)
+        // SubtÌtulo (·rea)
         GameObject areaObj = CreateUIGameObject("Area", detailPanel.transform);
         detailAreaText = areaObj.AddComponent<Text>();
         detailAreaText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
@@ -936,7 +936,7 @@ public class IndustrialDashboard : MonoBehaviour
 
         GameObject handleObj = CreateUIGameObject("Handle", slidingArea.transform);
         Image handleImg = handleObj.AddComponent<Image>();
-        handleImg.color = new Color(0f, 0f, 0f, 0.18f); // ‚Äúpill‚Äù oscuro sutil
+        handleImg.color = new Color(0f, 0f, 0f, 0.18f); // ìpillî oscuro sutil
         handleImg.sprite = roundedRectSprite;
         handleImg.type = Image.Type.Sliced;
         RectTransform handleRt = handleObj.GetComponent<RectTransform>();
@@ -971,7 +971,7 @@ public class IndustrialDashboard : MonoBehaviour
         ContentSizeFitter csf = content.AddComponent<ContentSizeFitter>();
         csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-        // Guardar el root para construir UI din√°mica
+        // Guardar el root para construir UI din·mica
         detailContentRoot = content.transform;
 
         // Fallback de cuerpo (por si algo falla)
@@ -991,7 +991,7 @@ public class IndustrialDashboard : MonoBehaviour
         sr.verticalScrollbar = vbar;
         sr.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.Permanent;
 
-        // Bot√≥n cerrar del panel de detalle (arriba derecha)
+        // BotÛn cerrar del panel de detalle (arriba derecha)
         GameObject closeBtn = CreateUIGameObject("CloseDetail", detailPanel.transform);
         Button close = closeBtn.AddComponent<Button>();
         Image closeImg = closeBtn.AddComponent<Image>();
@@ -1020,14 +1020,14 @@ public class IndustrialDashboard : MonoBehaviour
         if (detailPanel == null) CreateDetailPanel();
 
         detailTitleText.text = kpi.name;
-        detailAreaText.text = $"√Årea: {currentAreaName}";
+        detailAreaText.text = $"¡rea: {currentAreaName}";
 
-        // 1) texto ‚Äúsem√°ntico‚Äù (fallback) por si algo falla
+        // 1) texto ìsem·nticoî (fallback) por si algo falla
         string body = null;
         if (ProvideDetail != null)
         {
             try { body = ProvideDetail.Invoke(currentAreaName, kpi); }
-            catch (Exception e) { Debug.LogWarning($"ProvideDetail lanz√≥ excepci√≥n: {e.Message}"); }
+            catch (Exception e) { Debug.LogWarning($"ProvideDetail lanzÛ excepciÛn: {e.Message}"); }
         }
         if (string.IsNullOrWhiteSpace(body)) body = GetDefaultDetailText(currentAreaName, kpi);
 
@@ -1046,20 +1046,20 @@ public class IndustrialDashboard : MonoBehaviour
     {
         return
             $"Resumen de {kpi.name}\n\n" +
-            $"‚Ä¢ √Årea: {area}\n" +
-            $"‚Ä¢ Valor actual: {kpi.value:F1}{(string.IsNullOrEmpty(kpi.unit) ? "%" : kpi.unit)}\n\n" +
-            $"Interpretaci√≥n:\n" +
-            $"- 90‚Äì100: Excelente (verde)\n" +
-            $"- 75‚Äì89: Aceptable (naranja)\n" +
+            $"ï ¡rea: {area}\n" +
+            $"ï Valor actual: {kpi.value:F1}{(string.IsNullOrEmpty(kpi.unit) ? "%" : kpi.unit)}\n\n" +
+            $"InterpretaciÛn:\n" +
+            $"- 90ñ100: Excelente (verde)\n" +
+            $"- 75ñ89: Aceptable (naranja)\n" +
             $"- <75: Riesgo (rojo)\n\n" +
             $"Recomendaciones:\n" +
-            $"- Revise tendencias de las √∫ltimas 4 semanas\n" +
+            $"- Revise tendencias de las ˙ltimas 4 semanas\n" +
             $"- Identifique cuellos de botella\n" +
             $"- Genere acciones correctivas puntuales";
     }
 
     // ===============================
-    // Apple-style Detail UI (din√°mico)
+    // Apple-style Detail UI (din·mico)
     // ===============================
 
     void BuildDetailUIRich(KPIData kpi, string area, string semanticText)
@@ -1067,7 +1067,7 @@ public class IndustrialDashboard : MonoBehaviour
         ClearDetailDynamic();
         if (detailBodyText != null) detailBodyText.gameObject.SetActive(false); // ocultamos el fallback
 
-        // --- C√°lculos b√°sicos ---
+        // --- C·lculos b·sicos ---
         float value = Mathf.Clamp(kpi.value, 0, 100);
         float target = GetTargetFor(kpi.name);
         float gap = value - target;
@@ -1088,13 +1088,13 @@ public class IndustrialDashboard : MonoBehaviour
 
         CreateDivider(detailContentRoot);
 
-        // --- Secci√≥n: Por qu√© este valor ---
-        CreateSectionTitle(detailContentRoot, "¬øPor qu√© este valor?");
+        // --- SecciÛn: Por quÈ este valor ---
+        CreateSectionTitle(detailContentRoot, "øPor quÈ este valor?");
         foreach (var line in GetReasonsFor(kpi, value)) CreateBullet(detailContentRoot, line);
 
         CreateDivider(detailContentRoot);
 
-        // --- Secci√≥n: Siguientes pasos ---
+        // --- SecciÛn: Siguientes pasos ---
         CreateSectionTitle(detailContentRoot, "Siguientes pasos");
         foreach (var step in GetActionsFor(kpi, value)) CreateBullet(detailContentRoot, step);
 
@@ -1243,7 +1243,7 @@ public class IndustrialDashboard : MonoBehaviour
         d.GetComponent<RectTransform>().sizeDelta = new Vector2(0, 1);
     }
 
-    // ---------- L√≥gica de negocio ligera (heur√≠sticas coherentes con AreaManager) ----------
+    // ---------- LÛgica de negocio ligera (heurÌsticas coherentes con AreaManager) ----------
     float GetTargetFor(string kpiName)
     {
         string n = (kpiName ?? "").ToLowerInvariant();
@@ -1261,7 +1261,7 @@ public class IndustrialDashboard : MonoBehaviour
     {
         if (value >= target) { status = "Excelente"; statusColor = accentColor; }
         else if (value >= target - 10) { status = "En riesgo"; statusColor = warningColor; }
-        else { status = "Cr√≠tico"; statusColor = dangerColor; }
+        else { status = "CrÌtico"; statusColor = dangerColor; }
     }
 
     IEnumerable<string> GetReasonsFor(KPIData kpi, float value)
@@ -1269,7 +1269,7 @@ public class IndustrialDashboard : MonoBehaviour
         string n = (kpi.name ?? "").ToLowerInvariant();
         if (n.Contains("delivery"))
         {
-            yield return $"√ìrdenes planificadas: {GetEstOrders(value)}";
+            yield return $"”rdenes planificadas: {GetEstOrders(value)}";
             yield return $"Incumplimientos detectados: {GetIncidences(value)}";
             yield return $"Retraso promedio: {GetDelayMins(value)} min";
             yield break;
@@ -1277,15 +1277,15 @@ public class IndustrialDashboard : MonoBehaviour
         if (n.Contains("quality"))
         {
             yield return $"PPM estimado: {GetPpm(value)}";
-            yield return $"Top defectos: Falta de componente, Cosm√©tico, Torque";
-            yield return $"Retrabajos/d√≠a: {GetReworks(value)}";
+            yield return $"Top defectos: Falta de componente, CosmÈtico, Torque";
+            yield return $"Retrabajos/dÌa: {GetReworks(value)}";
             yield break;
         }
         if (n.Contains("parts"))
         {
-            yield return $"SKU cr√≠ticos: {GetCriticalSkus(value)}";
+            yield return $"SKU crÌticos: {GetCriticalSkus(value)}";
             yield return $"Backorders: {GetBackorders(value)}";
-            yield return $"Cobertura: {GetCoverageDays(value)} d√≠a(s)";
+            yield return $"Cobertura: {GetCoverageDays(value)} dÌa(s)";
             yield break;
         }
         if (n.Contains("process"))
@@ -1297,16 +1297,16 @@ public class IndustrialDashboard : MonoBehaviour
         }
         if (n.Contains("training"))
         {
-            yield return $"Cursos cr√≠ticos vencidos: {GetExpiredCourses(value)}";
+            yield return $"Cursos crÌticos vencidos: {GetExpiredCourses(value)}";
             yield return $"Polivalencia: {GetPolyvalence(value)}%";
-            yield return $"Rotaci√≥n mes: {GetTurnover()}%";
+            yield return $"RotaciÛn mes: {GetTurnover()}%";
             yield break;
         }
         if (n.Contains("manten") || n.Contains("mtto"))
         {
             yield return $"WO abiertas: {GetOpenWo(value)}";
             yield return $"Paros mayores: {GetMajorStops(value)}";
-            yield return $"Pr√≥x. PM: {GetNextPMDate()}";
+            yield return $"PrÛx. PM: {GetNextPMDate()}";
             yield break;
         }
         if (n.Contains("overall"))
@@ -1321,21 +1321,21 @@ public class IndustrialDashboard : MonoBehaviour
         string n = (kpi.name ?? "").ToLowerInvariant();
         if (n.Contains("delivery"))
         {
-            yield return "Asegurar JIT en materiales cr√≠ticos.";
-            yield return "Balanceo de l√≠nea y secuencia de empaque.";
+            yield return "Asegurar JIT en materiales crÌticos.";
+            yield return "Balanceo de lÌnea y secuencia de empaque.";
             yield return "Monitoreo de transporte en tiempo real.";
             yield break;
         }
         if (n.Contains("quality"))
         {
-            yield return "Gemba r√°pido en estaciones con scrap.";
-            yield return "5-Why al defecto principal; contenci√≥n si PPM > objetivo.";
+            yield return "Gemba r·pido en estaciones con scrap.";
+            yield return "5-Why al defecto principal; contenciÛn si PPM > objetivo.";
             yield break;
         }
         if (n.Contains("parts"))
         {
             yield return "Escalonar compras urgentes y validar alternos.";
-            yield return "Revisi√≥n de cobertura/consumo por SKU.";
+            yield return "RevisiÛn de cobertura/consumo por SKU.";
             yield break;
         }
         if (n.Contains("process"))
@@ -1346,8 +1346,8 @@ public class IndustrialDashboard : MonoBehaviour
         }
         if (n.Contains("training"))
         {
-            yield return "Reentrenar est√°ndar de trabajo en estaciones clave.";
-            yield return "Plan de cierre para cursos cr√≠ticos vencidos.";
+            yield return "Reentrenar est·ndar de trabajo en estaciones clave.";
+            yield return "Plan de cierre para cursos crÌticos vencidos.";
             yield break;
         }
         if (n.Contains("manten") || n.Contains("mtto"))
@@ -1358,12 +1358,12 @@ public class IndustrialDashboard : MonoBehaviour
         }
         if (n.Contains("overall"))
         {
-            yield return "Foco en la palanca m√°s d√©bil para +5 pts/2 semanas.";
+            yield return "Foco en la palanca m·s dÈbil para +5 pts/2 semanas.";
             yield break;
         }
     }
 
-    // --- peque√±as heur√≠sticas para las secciones (coherentes con AreaManager) ---
+    // --- pequeÒas heurÌsticas para las secciones (coherentes con AreaManager) ---
     int GetEstOrders(float delivery) => Mathf.Clamp(Mathf.RoundToInt(50f * (delivery / 100f) + 5), 5, 60);
     int GetIncidences(float delivery) => delivery < 50 ? 5 : (delivery < 80 ? 2 : 0);
     int GetDelayMins(float delivery) => delivery < 50 ? 35 : (delivery < 80 ? 12 : 3);

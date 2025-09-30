@@ -66,12 +66,12 @@ public class AreaOverlayPainter : MonoBehaviour
     private void Awake()
     {
         // Cache rápido de cámara
-        _cachedMainCamera = Camera.main ?? FindObjectOfType<Camera>();
+        _cachedMainCamera = Camera.main ?? FindFirstObjectByType<Camera>();
     }
 
     private void Start()
     {
-        if (areaManager == null) areaManager = FindObjectOfType<AreaManager>();
+        if (areaManager == null) areaManager = FindFirstObjectByType<AreaManager>();
         InitializeOverlays();
         // Por defecto oculto hasta entrar a MAPA (se conserva tu comportamiento)
         SetOverlaysActive(false);

@@ -1,37 +1,52 @@
-Ôªøusing UnityEngine;
+using UnityEngine;
 using TMPro;
 using static TMPro.ShaderUtilities;
 
 /// <summary>
-/// Textos manuales que se ven solo en la vista MAPA (top-down fija).
-/// VERSI√ìN CORREGIDA para consistencia Editor/Runtime
+/// Controla etiquetas de texto manuales (nombre + porcentaje) que se muestran ˙nicamente
+/// en la vista est·tica top-down del mapa 3D/2D.
+/// 
+/// Responsabilidades:
+/// - Auto-detectar el ·rea asociada desde la jerarquÌa
+/// - Sincronizar visibilidad con ManualLabelsManager y TopDownCameraController
+/// - Actualizar textos con datos de AreaManager
+/// - Aplicar estilos configurables (preset TMP, outline, colores Apple)
+/// - Mantener consistencia de posiciÛn y escala del Canvas WorldSpace
+/// 
+/// Dependencias:
+/// - ManualLabelsManager: registro centralizado
+/// - AreaManager: datos de porcentaje por ·rea
+/// - TopDownCameraController: detecciÛn de modo de c·mara
+/// - AppleTheme (opcional): colores consistentes
 /// </summary>
 public class ManualAreaLabel : MonoBehaviour
 {
+    #region Serialized Fields
 
-// === Nuevo: control de estilo ===
-[Header("Estilo (opcional)")]
-[Tooltip("Si est√° activo, NO se sobreescriben Outline/Underlay/Color en runtime.")]
-public bool respectInspectorTextSettings = true;
+    [Header("Estilo (opcional)")]
+    [Tooltip("Si est· activo, NO se sobreescriben Outline/Underlay/Color en runtime.")]
+    public bool respectInspectorTextSettings = true;
 
-[Tooltip("Preset Material de TMP para aplicar a ambos textos (opcional).")]
-public Material sharedTMPPreset;
+    [Tooltip("Preset Material de TMP para aplicar a ambos textos (opcional).")]
+    public Material sharedTMPPreset;
 
-[Tooltip("Aplica sharedTMPPreset una sola vez en Start.")]
-public bool applyPresetOnStart = true;
-
+    [Tooltip("Aplica sharedTMPPreset una sola vez en Start.")]
+    public bool applyPresetOnStart = true;
 
     [Header("Referencias de Textos")]
-    [Tooltip("TextMeshProUGUI del nombre")]
+    [Tooltip("TextMeshProUGUI del nombre del ·rea")]
     public TextMeshProUGUI nameText;
-    [Tooltip("TextMeshProUGUI del porcentaje")]
+
+    [Tooltip("TextMeshProUGUI del porcentaje de calidad")]
     public TextMeshProUGUI percentText;
 
-    [Header("Configuraci√≥n")]
-    [Tooltip("Clave del √°rea (ATHONDA, VCTL4, BUZZERL2, VBL1). Se auto-detecta si est√° vac√≠o.")]
+    [Header("ConfiguraciÛn")]
+    [Tooltip("Clave del ·rea (ATHONDA, VCTL4, BUZZERL2, VBL1). Se auto-detecta si est· vacÌo.")]
     public string areaKey = "ATHONDA";
-    [Tooltip("Forzar nombre personalizado")]
+
+    [Tooltip("Forzar nombre personalizado en lugar del de AreaManager")]
     public bool useCustomName = false;
+
     public string customNameText = "AT HONDA";
 
     [Header("Vista")]
@@ -39,62 +54,84 @@ public bool applyPresetOnStart = true;
     public bool onlyShowInStaticTopDown = true;
 
     [Header("Colores de Texto")]
-    [Tooltip("Forzar texto negro")]
-    public bool keepTextBlack = false; // ‚Üê estaba true
+    [Tooltip("Forzar texto negro (obsoleto si usas respectInspectorTextSettings)")]
+    public bool keepTextBlack = false;
 
-[Header("Estilo en Top-Down Est√°tico")]
-public bool whiteWithBlackOutlineInStatic = true;
-[Range(0f, 1f)] public float outlineWidthStatic = 0.18f; // 0.12‚Äì0.25 recomendado
-public Color outlineColorStatic = new Color(0,0,0,0.95f);
+    [Header("Estilo en Top-Down Est·tico")]
+    [Tooltip("Aplicar blanco con outline negro en vista est·tica")]
+    public bool whiteWithBlackOutlineInStatic = true;
 
+    [Range(0f, 1f)]
+    [Tooltip("Ancho del outline (recomendado 0.12-0.25)")]
+    public float outlineWidthStatic = 0.18f;
+
+    public Color outlineColorStatic = new Color(0, 0, 0, 0.95f);
 
     [Header("Canvas Settings - CLAVE PARA CONSISTENCIA")]
-    [Tooltip("Altura Y fija para el label")]
+    [Tooltip("Altura Y fija para el label en el mundo")]
     public float labelHeightY = 0.25f;
-    [Tooltip("Escala base del canvas (ajustar seg√∫n necesidad)")]
+
+    [Tooltip("Escala base del canvas")]
     public float canvasBaseScale = 1.0f;
-    [Tooltip("Escala espec√≠fica para vista mapa")]
+
+    [Tooltip("Escala especÌfica para vista mapa")]
     public float mapModeScale = 1.2f;
-    [Tooltip("Orden de sorting")]
+
+    [Tooltip("Orden de sorting del canvas")]
     public int canvasSortingOrder = 5000;
 
-    [Header("üîß CORRECCI√ìN DE POSICI√ìN")]
-    [Tooltip("Offset en X para ajustar posici√≥n final")]
+    [Header("?? CORRECCI”N DE POSICI”N")]
+    [Tooltip("Offset en X para ajustar posiciÛn final")]
     public float positionOffsetX = 0f;
-    [Tooltip("Offset en Z para ajustar posici√≥n final")]
+
+    [Tooltip("Offset en Z para ajustar posiciÛn final")]
     public float positionOffsetZ = 0f;
-    [Tooltip("Forzar recalculo de posici√≥n en cada frame")]
+
+    [Tooltip("Forzar recalculo de posiciÛn en cada frame")]
     public bool continuousPositionUpdate = true;
 
-    [Header("Autodetecci√≥n")]
-    [Tooltip("Detectar √°rea por jerarqu√≠a")]
+    [Header("AutodetecciÛn")]
+    [Tooltip("Detectar ·rea por jerarquÌa de padres (busca AREA_*)")]
     public bool autoDetectAreaFromHierarchy = true;
 
     [Header("Debug")]
     public bool enableDebug = false;
 
-    // Internos
+    #endregion
+
+    #region Private State
+
     private AreaManager areaManager;
     private TopDownCameraController topDownController;
     private bool currentlyVisible = false;
     private float lastOverallResult = -1f;
     private bool isRegistered = false;
     private Canvas cachedCanvas;
-    private Vector3 originalWorldPosition;
-    private bool hasBeenPositioned = false;
+    private Vector3 originalWorldPosition = Vector3.zero;
 
+    #endregion
+
+    #region Unity Callbacks
+
+    /// <summary>
+    /// ValidaciÛn en Editor: guarda la posiciÛn original antes de Play Mode
+    /// </summary>
     void OnValidate()
     {
-        // Guardar posici√≥n solo si no est√° en play mode
         if (!Application.isPlaying)
         {
             originalWorldPosition = transform.position;
         }
     }
 
+    /// <summary>
+    /// InicializaciÛn temprana:
+    /// - Auto-detecta areaKey desde jerarquÌa
+    /// - Guarda posiciÛn original del transform
+    /// </summary>
     void Awake()
     {
-        // Autodetectar clave
+        // Auto-detecciÛn de ·rea
         if (autoDetectAreaFromHierarchy)
         {
             string detected = DetectAreaKeyFromParents();
@@ -104,32 +141,49 @@ public Color outlineColorStatic = new Color(0,0,0,0.95f);
             }
         }
 
-        // Guardar posici√≥n original
+        // Guardar posiciÛn original para correcciones posteriores
         originalWorldPosition = transform.position;
 
-        if (enableDebug) Debug.Log($"[ManualAreaLabel:{name}] Awake - areaKey = {areaKey}, pos = {originalWorldPosition}");
+        if (enableDebug)
+        {
+            QCLog.Info($"[ManualAreaLabel:{name}] Awake - areaKey={areaKey}, pos={originalWorldPosition}");
+        }
     }
 
+    /// <summary>
+    /// InicializaciÛn principal:
+    /// - Registra en ManualLabelsManager
+    /// - Obtiene referencias de sistemas (AreaManager, c·mara)
+    /// - Configura Canvas WorldSpace
+    /// - Aplica preset TMP y colores iniciales
+    /// - Establece visibilidad inicial (oculto)
+    /// </summary>
     void Start()
     {
+        // Registro centralizado
         ManualLabelsManager.Register(this);
         isRegistered = true;
 
-        areaManager = FindObjectOfType<AreaManager>();
-        var mainCamera = Camera.main ?? FindObjectOfType<Camera>();
-        if (mainCamera != null) topDownController = mainCamera.GetComponent<TopDownCameraController>();
+        // Referencias de sistemas
+        areaManager = FindFirstObjectByType<AreaManager>();
+        
+        var mainCamera = Camera.main ?? FindFirstObjectByType<Camera>();
+        if (mainCamera != null)
+        {
+            topDownController = mainCamera.GetComponent<TopDownCameraController>();
+        }
 
-        // Setup cr√≠tico del canvas
+        // Setup crÌtico del Canvas WorldSpace
         SetupCanvasForConsistency();
 
-        // Aplicar preset opcional una sola vez
-if (applyPresetOnStart && sharedTMPPreset != null) {
-    if (nameText) nameText.fontSharedMaterial = sharedTMPPreset;
-    if (percentText) percentText.fontSharedMaterial = sharedTMPPreset;
-}
+        // Aplicar preset TMP opcional (una sola vez)
+        if (applyPresetOnStart && sharedTMPPreset != null)
+        {
+            if (nameText) nameText.fontSharedMaterial = sharedTMPPreset;
+            if (percentText) percentText.fontSharedMaterial = sharedTMPPreset;
+        }
 
-
-        // Colores iniciales
+        // Colores iniciales (si no se respeta Inspector)
         if (keepTextBlack)
         {
             if (nameText) nameText.color = Color.black;
@@ -138,39 +192,53 @@ if (applyPresetOnStart && sharedTMPPreset != null) {
 
         // Nombre personalizado
         if (useCustomName && nameText && !string.IsNullOrEmpty(customNameText))
+        {
             nameText.text = customNameText;
+        }
 
-        // Estado inicial
+        // Estado inicial: oculto hasta que se active el modo correcto
         SetVisibility(false);
         UpdateTexts();
 
         if (enableDebug)
         {
-            Debug.Log($"[ManualAreaLabel:{name}] Start completado");
+            QCLog.Info($"[ManualAreaLabel:{name}] Start completado");
         }
     }
 
+    /// <summary>
+    /// Loop principal:
+    /// - Asegura consistencia del Canvas (c·mara asignada)
+    /// - Actualiza visibilidad seg˙n modo de c·mara
+    /// - Sincroniza datos de porcentaje si cambian
+    /// - Actualiza posiciÛn continuamente si est· configurado
+    /// </summary>
     void Update()
     {
-        // üîß CORRECCI√ìN CLAVE: Asegurar c√°mara y posici√≥n consistente
+        // Asegurar consistencia de Canvas y c·mara
         EnsureCanvasConsistency();
 
-        // Actualizar visibilidad
+        // Determinar si debe mostrarse seg˙n modo de c·mara actual
         bool shouldShow = ShouldShowTexts();
+        
         if (shouldShow != currentlyVisible)
         {
             currentlyVisible = shouldShow;
             SetVisibility(currentlyVisible);
-            if (currentlyVisible)
             
-            UpdateTexts();
-            ApplyStaticStyleIfNeeded();
+            if (currentlyVisible)
+            {
+                UpdateTexts();
+                ApplyStaticStyleIfNeeded();
+            }
 
-            if (enableDebug) Debug.Log($"[ManualAreaLabel:{name}] Visibilidad: {shouldShow}");
-
+            if (enableDebug)
+            {
+                QCLog.Info($"[ManualAreaLabel:{name}] Visibilidad: {shouldShow}");
+            }
         }
 
-        // Actualizar datos si cambian
+        // Actualizar datos si el porcentaje cambiÛ
         if (currentlyVisible)
         {
             var data = GetAreaData();
@@ -181,74 +249,115 @@ if (applyPresetOnStart && sharedTMPPreset != null) {
             }
         }
 
-        // üîß Actualizaci√≥n continua de posici√≥n si est√° habilitada
+        // ActualizaciÛn continua de posiciÛn si est· habilitada
         if (continuousPositionUpdate && currentlyVisible)
         {
             UpdateCanvasPosition();
         }
     }
 
-
-void ApplyStaticStyleIfNeeded()
-{
-    // Si quieres respetar el Inspector o ya usas preset, no toques nada en runtime
-    if (respectInspectorTextSettings || sharedTMPPreset != null) return;
-
-    bool isStaticTopDown = ShouldShowTexts();
-    if (isStaticTopDown)
+    /// <summary>
+    /// Limpieza: desregistra del ManualLabelsManager
+    /// </summary>
+    void OnDestroy()
     {
-        if (nameText)    SetTMPWhiteWithOutline(nameText);
-        if (percentText) SetTMPWhiteWithOutline(percentText);
+        if (isRegistered)
+        {
+            ManualLabelsManager.Unregister(this);
+            isRegistered = false;
+        }
     }
-}
 
+    #endregion
 
-void SetTMPWhiteWithOutline(TextMeshProUGUI tmp)
-{
-    // Solo se usa cuando NO respetas el Inspector y NO hay preset
-    tmp.color = Color.white;
-    var mat = tmp.fontMaterial; // instancia runtime
-    if (mat != null)
+    #region Public API
+
+    /// <summary>
+    /// Fuerza actualizaciÛn completa de textos y posiciÛn.
+    /// Llamado desde ManualLabelsManager cuando cambia el modo de c·mara.
+    /// </summary>
+    public void ForceRefresh()
     {
-        mat.SetFloat(ID_OutlineWidth, outlineWidthStatic);
-        mat.SetColor(ID_OutlineColor, outlineColorStatic);
-        if (mat.HasProperty(ID_FaceDilate)) mat.SetFloat(ID_FaceDilate, 0.0f);
+        if (enableDebug)
+        {
+            QCLog.Info($"[ManualAreaLabel:{name}] ForceRefresh()");
+        }
+        
+        UpdateTexts();
+        UpdateCanvasPosition();
     }
-}
 
-    // ========== M√âTODOS CORREGIDOS ==========
+    /// <summary>
+    /// Establece visibilidad seg˙n el estado top-down.
+    /// Llamado desde ManualLabelsManager para sincronizaciÛn global.
+    /// </summary>
+    /// <param name="visible">Si el modo top-down est· activo</param>
+    public void SetTopDownVisibility(bool visible)
+    {
+        if (enableDebug)
+        {
+            QCLog.Info($"[ManualAreaLabel:{name}] SetTopDownVisibility({visible})");
+        }
 
-    void SetupCanvasForConsistency()
+        bool finalVisible = visible && ShouldShowTexts();
+        SetVisibility(finalVisible);
+        
+        if (finalVisible)
+        {
+            UpdateTexts();
+        }
+    }
+
+    #endregion
+
+    #region Internal Helpers - Canvas Setup
+
+    /// <summary>
+    /// ConfiguraciÛn inicial del Canvas WorldSpace.
+    /// Asegura renderMode correcto, c·mara asignada, posiciÛn y escala iniciales.
+    /// </summary>
+    private void SetupCanvasForConsistency()
     {
         cachedCanvas = GetComponentInChildren<Canvas>(true);
+        
         if (!cachedCanvas)
         {
-            if (enableDebug) Debug.LogError($"[ManualAreaLabel:{name}] No se encontr√≥ Canvas hijo!");
+            if (enableDebug)
+            {
+                QCLog.Error($"[ManualAreaLabel:{name}] No se encontrÛ Canvas hijo!");
+            }
             return;
         }
 
-        // Configuraci√≥n b√°sica
+        // ConfiguraciÛn b·sica WorldSpace
         cachedCanvas.renderMode = RenderMode.WorldSpace;
         cachedCanvas.overrideSorting = true;
         cachedCanvas.sortingOrder = canvasSortingOrder;
 
-        // Asegurar c√°mara inmediatamente
+        // Asignar c·mara inmediatamente
         AssignCameraToCanvas();
 
-        // Posici√≥n inicial
+        // PosiciÛn inicial basada en originalWorldPosition
         UpdateCanvasPosition();
 
         // Escala inicial
         UpdateCanvasScale();
 
-        if (enableDebug) Debug.Log($"[ManualAreaLabel:{name}] Canvas configurado - Camera: {cachedCanvas.worldCamera?.name}");
+        if (enableDebug)
+        {
+            QCLog.Info($"[ManualAreaLabel:{name}] Canvas configurado - Camera: {cachedCanvas.worldCamera?.name}");
+        }
     }
 
-    void EnsureCanvasConsistency()
+    /// <summary>
+    /// Verifica y mantiene la consistencia del Canvas en runtime.
+    /// Re-asigna la c·mara si se pierde la referencia.
+    /// </summary>
+    private void EnsureCanvasConsistency()
     {
         if (!cachedCanvas) return;
 
-        // Verificar y reasignar c√°mara si es necesario
+        // Verificar que la c·mara siga asignada en WorldSpace
         if (cachedCanvas.renderMode == RenderMode.WorldSpace)
         {
             if (cachedCanvas.worldCamera == null)
@@ -258,46 +367,64 @@ void SetTMPWhiteWithOutline(TextMeshProUGUI tmp)
         }
     }
 
-    void AssignCameraToCanvas()
+    /// <summary>
+    /// Asigna la c·mara activa al Canvas WorldSpace.
+    /// Prioridad: Camera.main > FindFirstObjectByType<Camera>
+    /// </summary>
+    private void AssignCameraToCanvas()
     {
         if (!cachedCanvas) return;
 
-        Camera targetCamera = null;
-
-        // Prioridad: Camera.main > FindObjectOfType<Camera>
-        targetCamera = Camera.main;
+        Camera targetCamera = Camera.main;
+        
         if (targetCamera == null)
         {
-            targetCamera = FindObjectOfType<Camera>();
+            targetCamera = FindFirstObjectByType<Camera>();
         }
 
         if (targetCamera != null)
         {
             cachedCanvas.worldCamera = targetCamera;
-            if (enableDebug) Debug.Log($"[ManualAreaLabel:{name}] C√°mara asignada: {targetCamera.name}");
+            
+            if (enableDebug)
+            {
+                QCLog.Info($"[ManualAreaLabel:{name}] C·mara asignada: {targetCamera.name}");
+            }
         }
         else
         {
-            if (enableDebug) Debug.LogWarning($"[ManualAreaLabel:{name}] No se encontr√≥ c√°mara!");
+            if (enableDebug)
+            {
+                QCLog.Warn($"[ManualAreaLabel:{name}] No se encontrÛ c·mara disponible!");
+            }
         }
     }
 
-    void UpdateCanvasPosition()
+    /// <summary>
+    /// Actualiza la posiciÛn mundial del label aplicando offsets configurados.
+    /// Resetea la posiciÛn local del Canvas a (0,0,0).
+    /// </summary>
+    private void UpdateCanvasPosition()
     {
         if (!cachedCanvas) return;
 
-        // Posicionar el GameObject base (para referencias)
+        // Calcular posiciÛn final con offsets
         Vector3 finalPosition = originalWorldPosition;
         finalPosition.x += positionOffsetX;
         finalPosition.y = labelHeightY;
         finalPosition.z += positionOffsetZ;
+        
         transform.position = finalPosition;
 
-        // Resetear Canvas local
+        // Resetear Canvas local a cero (para evitar offsets acumulados)
         cachedCanvas.transform.localPosition = Vector3.zero;
     }
 
-    void UpdateCanvasScale()
+    /// <summary>
+    /// Actualiza la escala del Canvas seg˙n el modo actual.
+    /// Aplica mapModeScale cuando est· visible en modo mapa.
+    /// </summary>
+    private void UpdateCanvasScale()
     {
         if (!cachedCanvas) return;
 
@@ -311,7 +438,11 @@ void SetTMPWhiteWithOutline(TextMeshProUGUI tmp)
         }
     }
 
-    void CenterChildTexts()
+    /// <summary>
+    /// Centra los textos hijos dentro del Canvas.
+    /// Configura anchors y pivot al centro (0.5, 0.5).
+    /// </summary>
+    private void CenterChildTexts()
     {
         if (nameText)
         {
@@ -321,6 +452,7 @@ void SetTMPWhiteWithOutline(TextMeshProUGUI tmp)
             rt.anchoredPosition = Vector2.zero;
             rt.localRotation = Quaternion.identity;
         }
+
         if (percentText)
         {
             var rt = percentText.rectTransform;
@@ -331,15 +463,75 @@ void SetTMPWhiteWithOutline(TextMeshProUGUI tmp)
         }
     }
 
-    // ========== RESTO DE M√âTODOS IGUAL ==========
+    #endregion
 
-    bool ShouldShowTexts()
+    #region Internal Helpers - Style Application
+
+    /// <summary>
+    /// Aplica el estilo de outline blanco/negro si corresponde.
+    /// Solo act˙a si NO se respeta el Inspector y NO hay preset TMP.
+    /// </summary>
+    private void ApplyStaticStyleIfNeeded()
     {
-        if (!onlyShowInStaticTopDown) return true;
+        // Respetar configuraciÛn manual o preset
+        if (respectInspectorTextSettings || sharedTMPPreset != null)
+        {
+            return;
+        }
 
-        var mgr = FindObjectOfType<ManualLabelsManager>();
+        bool isStaticTopDown = ShouldShowTexts();
+        
+        if (isStaticTopDown && whiteWithBlackOutlineInStatic)
+        {
+            if (nameText) SetTMPWhiteWithOutline(nameText);
+            if (percentText) SetTMPWhiteWithOutline(percentText);
+        }
+    }
+
+    /// <summary>
+    /// Aplica estilo blanco con outline negro a un TextMeshProUGUI.
+    /// Modifica el material runtime (instancia).
+    /// </summary>
+    /// <param name="tmp">TextMeshProUGUI a modificar</param>
+    private void SetTMPWhiteWithOutline(TextMeshProUGUI tmp)
+    {
+        tmp.color = Color.white;
+        
+        var mat = tmp.fontMaterial; // Instancia runtime
+        if (mat != null)
+        {
+            mat.SetFloat(ID_OutlineWidth, outlineWidthStatic);
+            mat.SetColor(ID_OutlineColor, outlineColorStatic);
+            
+            if (mat.HasProperty(ID_FaceDilate))
+            {
+                mat.SetFloat(ID_FaceDilate, 0.0f);
+            }
+        }
+    }
+
+    #endregion
+
+    #region Internal Helpers - Visibility & Text Updates
+
+    /// <summary>
+    /// Determina si los textos deben mostrarse seg˙n el modo de c·mara actual.
+    /// Eval˙a: ManualLabelsManager, TopDownCameraController y modo est·tico.
+    /// </summary>
+    /// <returns>True si debe mostrarse en el modo actual</returns>
+    private bool ShouldShowTexts()
+    {
+        // Si no est· restringido a top-down, siempre visible
+        if (!onlyShowInStaticTopDown)
+        {
+            return true;
+        }
+
+        // Consultar estado del manager central
+        var mgr = FindFirstObjectByType<ManualLabelsManager>();
         bool managerSaysTopDown = (mgr != null) && mgr.GetCurrentTopDownMode();
 
+        // Verificar controlador de c·mara top-down
         bool topDownOk = false;
         bool staticOk = false;
 
@@ -349,13 +541,26 @@ void SetTMPWhiteWithOutline(TextMeshProUGUI tmp)
             staticOk = topDownController.IsUsingFixedStaticView();
         }
 
+        // Mostrar si el manager lo indica O si ambos modos est·n activos
         return managerSaysTopDown || (topDownOk && staticOk);
     }
 
-    void SetVisibility(bool visible)
+    /// <summary>
+    /// Establece la visibilidad de los GameObjects de texto.
+    /// Actualiza escala y estilo cuando se vuelve visible.
+    /// </summary>
+    /// <param name="visible">Si debe mostrarse</param>
+    private void SetVisibility(bool visible)
     {
-        if (nameText) nameText.gameObject.SetActive(visible);
-        if (percentText) percentText.gameObject.SetActive(visible);
+        if (nameText)
+        {
+            nameText.gameObject.SetActive(visible);
+        }
+
+        if (percentText)
+        {
+            percentText.gameObject.SetActive(visible);
+        }
 
         if (visible)
         {
@@ -364,16 +569,26 @@ void SetTMPWhiteWithOutline(TextMeshProUGUI tmp)
             ApplyStaticStyleIfNeeded();
         }
 
-        if (enableDebug) Debug.Log($"[ManualAreaLabel:{name}] SetVisibility({visible})");
+        if (enableDebug)
+        {
+            QCLog.Info($"[ManualAreaLabel:{name}] SetVisibility({visible})");
+        }
     }
 
-    void UpdateTexts()
+    /// <summary>
+    /// Actualiza ambos textos (nombre y porcentaje).
+    /// </summary>
+    private void UpdateTexts()
     {
         UpdateName();
         UpdatePercentage();
     }
 
-    void UpdateName()
+    /// <summary>
+    /// Actualiza el texto del nombre del ·rea.
+    /// Usa customNameText si est· configurado, sino obtiene de AreaManager.
+    /// </summary>
+    private void UpdateName()
     {
         if (!nameText) return;
 
@@ -384,85 +599,125 @@ void SetTMPWhiteWithOutline(TextMeshProUGUI tmp)
         else
         {
             var data = GetAreaData();
-            if (data != null) nameText.text = data.displayName;
+            if (data != null)
+            {
+                nameText.text = data.displayName;
+            }
         }
 
-        if (keepTextBlack && !ShouldShowTexts()) nameText.color = Color.black;
+        // Aplicar color negro si est· configurado y NO en modo est·tico
+        if (keepTextBlack && !ShouldShowTexts())
+        {
+            nameText.color = Color.black;
+        }
     }
 
-    void UpdatePercentage()
+    /// <summary>
+    /// Actualiza el texto del porcentaje de calidad.
+    /// Formatea como entero con sÌmbolo %.
+    /// </summary>
+    private void UpdatePercentage()
     {
         if (!percentText) return;
 
         var data = GetAreaData();
+        
         if (data != null)
         {
             percentText.text = $"{data.overallResult:F0}%";
-            if (keepTextBlack && !ShouldShowTexts()) percentText.color = Color.black;
+            
+            // Aplicar color negro si est· configurado y NO en modo est·tico
+            if (keepTextBlack && !ShouldShowTexts())
+            {
+                percentText.color = Color.black;
+            }
         }
         else
         {
             percentText.text = "0%";
-            if (keepTextBlack && !ShouldShowTexts()) percentText.color = Color.black;
+            
+            if (keepTextBlack && !ShouldShowTexts())
+            {
+                percentText.color = Color.black;
+            }
         }
     }
 
-    AreaManager.AreaData GetAreaData()
+    #endregion
+
+    #region Internal Helpers - Area Data & Detection
+
+    /// <summary>
+    /// Obtiene los datos del ·rea desde AreaManager.
+    /// </summary>
+    /// <returns>AreaData correspondiente o null si no existe</returns>
+    private AreaManager.AreaData GetAreaData()
     {
         if (!areaManager) return null;
+
         string normalizedKey = NormalizeAreaKey(areaKey);
         return areaManager.GetAreaData(normalizedKey);
     }
 
-    string NormalizeAreaKey(string key)
+    /// <summary>
+    /// Normaliza la clave del ·rea eliminando prefijos y espacios.
+    /// Mapea variantes comunes a claves est·ndar (ATHONDA, VCTL4, BUZZERL2, VBL1).
+    /// </summary>
+    /// <param name="key">Clave cruda</param>
+    /// <returns>Clave normalizada</returns>
+    private string NormalizeAreaKey(string key)
     {
         string upper = (key ?? "").ToUpperInvariant();
         upper = upper.Replace("AREA_", "").Replace(" ", "").Replace("_", "");
 
+        // Mapeo a claves conocidas
         if (upper.Contains("ATHONDA") || upper == "ATHONDA") return "ATHONDA";
         if (upper.Contains("VCTL4") || upper == "VCTL4") return "VCTL4";
         if (upper.Contains("BUZZERL2") || upper == "BUZZERL2") return "BUZZERL2";
         if (upper.Contains("VBL1") || upper == "VBL1") return "VBL1";
+
         return upper;
     }
 
-    string DetectAreaKeyFromParents()
+    /// <summary>
+    /// Detecta autom·ticamente la clave del ·rea buscando en la jerarquÌa de padres.
+    /// Busca GameObjects con nombres que empiecen con "AREA_".
+    /// </summary>
+    /// <returns>Clave detectada o null si no se encuentra</returns>
+    private string DetectAreaKeyFromParents()
     {
         Transform t = transform;
+        
         while (t != null)
         {
             string n = t.name.ToUpperInvariant();
+            
             if (n.StartsWith("AREA_"))
             {
+                // Extraer la parte despuÈs de "AREA_"
                 string k = n.Substring(5);
                 k = k.Replace(" ", "").Replace("_", "");
-                if (enableDebug) Debug.Log($"[ManualAreaLabel:{name}] Detectado: {k}");
+                
+                if (enableDebug)
+                {
+                    QCLog.Info($"[ManualAreaLabel:{name}] Detectado desde padre: {k}");
+                }
+                
                 return NormalizeAreaKey(k);
             }
+            
             t = t.parent;
         }
+        
         return null;
     }
 
-    // API para manager
-    public void ForceRefresh()
-    {
-        if (enableDebug) Debug.Log($"[ManualAreaLabel:{name}] ForceRefresh()");
-        UpdateTexts();
-        UpdateCanvasPosition();
-    }
+    #endregion
 
-    public void SetTopDownVisibility(bool visible)
-    {
-        if (enableDebug) Debug.Log($"[ManualAreaLabel:{name}] SetTopDownVisibility({visible})");
-        bool finalVisible = visible && ShouldShowTexts();
-        SetVisibility(finalVisible);
-        if (finalVisible) UpdateTexts();
-    }
+    #region Debug
 
-    void OnDestroy()
-    {
-        if (isRegistered) ManualLabelsManager.Unregister(this);
-        isRegistered = false;
-    }
+    // MÈtodos de debug adicionales pueden aÒadirse aquÌ si es necesario
+    // Por ahora, los logs est·n distribuidos en los mÈtodos principales
+
+    #endregion
 }
