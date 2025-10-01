@@ -6,11 +6,11 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/10_Plant_OP2.unity
-    guid: 99c9720ab356a0642a771bea13969a05
-  - enabled: 1
     path: Assets/Scenes/01_Planet.unity
-    guid: 6d19ca05988d7fa489fa105a0069576a
+    guid: 89eff3902aece234eb51c2142d6e3624
+  - enabled: 1
+    path: Assets/Scenes/10_Plant_OP2.unity
+    guid: 01f28211561086b44963a2581cca67ad
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0
