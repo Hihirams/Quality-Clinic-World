@@ -257,6 +257,14 @@ PrefabInstance:
       value: Card_Asia
       objectReference: {fileID: 0}
     - target: {fileID: 4393811626429691853, guid: 7234b39c137827648a3335ff3ad57860, type: 3}
+      propertyPath: m_fontSize
+      value: 4.6
+      objectReference: {fileID: 0}
+    - target: {fileID: 4393811626429691853, guid: 7234b39c137827648a3335ff3ad57860, type: 3}
+      propertyPath: m_fontSizeBase
+      value: 4.6
+      objectReference: {fileID: 0}
+    - target: {fileID: 4393811626429691853, guid: 7234b39c137827648a3335ff3ad57860, type: 3}
       propertyPath: m_VerticalAlignment
       value: 512
       objectReference: {fileID: 0}
@@ -525,6 +533,14 @@ PrefabInstance:
       value: Card_Africa
       objectReference: {fileID: 0}
     - target: {fileID: 4393811626429691853, guid: 7234b39c137827648a3335ff3ad57860, type: 3}
+      propertyPath: m_fontSize
+      value: 3.55
+      objectReference: {fileID: 0}
+    - target: {fileID: 4393811626429691853, guid: 7234b39c137827648a3335ff3ad57860, type: 3}
+      propertyPath: m_fontSizeBase
+      value: 3.55
+      objectReference: {fileID: 0}
+    - target: {fileID: 4393811626429691853, guid: 7234b39c137827648a3335ff3ad57860, type: 3}
       propertyPath: m_VerticalAlignment
       value: 512
       objectReference: {fileID: 0}
@@ -596,6 +612,14 @@ PrefabInstance:
     - target: {fileID: 1386858760341643604, guid: 7234b39c137827648a3335ff3ad57860, type: 3}
       propertyPath: m_Name
       value: Card_Europe
+      objectReference: {fileID: 0}
+    - target: {fileID: 4393811626429691853, guid: 7234b39c137827648a3335ff3ad57860, type: 3}
+      propertyPath: m_fontSize
+      value: 2.85
+      objectReference: {fileID: 0}
+    - target: {fileID: 4393811626429691853, guid: 7234b39c137827648a3335ff3ad57860, type: 3}
+      propertyPath: m_fontSizeBase
+      value: 2.85
       objectReference: {fileID: 0}
     - target: {fileID: 4393811626429691853, guid: 7234b39c137827648a3335ff3ad57860, type: 3}
       propertyPath: m_VerticalAlignment
