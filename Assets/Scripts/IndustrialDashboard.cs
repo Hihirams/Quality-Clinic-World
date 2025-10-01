@@ -12,7 +12,7 @@ public class IndustrialDashboard : MonoBehaviour
     [Header("Referencias de UI - Se crean autom�ticamente")]
     private Canvas mainCanvas;
 
-    [Header("Configuraci�n de Colores - EXACTOS de la imagen")]
+    [Header("Configuración de Colores - EXACTOS de la imagen")]
     public Color primaryColor = new Color(0.2f, 0.6f, 1f, 1f);        // Azul KPIs
     public Color secondaryColor = new Color(1f, 1f, 1f, 1f);          // Fondo blanco puro
     public Color accentColor = new Color(0.0f, 0.8f, 0.4f, 1f);       // Verde
