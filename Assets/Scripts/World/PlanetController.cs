@@ -2,6 +2,10 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 
+/// <summary>
+/// Controlador principal del sistema de navegación
+/// NUEVA MECÁNICA: El planeta rota para centrar regiones, la cámara permanece fija
+/// </summary>
 public class PlanetController : MonoBehaviour
 {
     [Header("Referencias")]
@@ -9,164 +13,377 @@ public class PlanetController : MonoBehaviour
     public Camera mainCamera;
     public RegionCard[] continentCards;
     
-    [Header("Configuración de Cámara")]
+    [Header("Configuración de Zoom")]
     public float zoomDuration = 1.5f;
-    public float continentZoomDistance = 8f;
-    public float countryZoomDistance = 5f;
-    public float stateZoomDistance = 3f;
-    public float plantZoomDistance = 2f;
+    public float continentZoomDistance = 10f;
+    public float countryZoomDistance = 7f;
+    public float stateZoomDistance = 5f;
+    public float plantZoomDistance = 3f;
     
     [Header("Rotación del Planeta")]
     public float planetRotationSpeed = 10f;
     public bool autoRotate = true;
+    public float focusRotationDuration = 1.2f; // Duración de la rotación al hacer focus
+    
+    [Header("Capas Visuales")]
+    public GameObject visualLayer_Continents;
+    public GameObject visualLayer_Countries;
+    public GameObject visualLayer_States;
     
     private Vector3 initialCameraPosition;
-    private Quaternion initialCameraRotation;
+    private Quaternion initialPlanetRotation;
     private Stack<NavigationLevel> navigationStack = new Stack<NavigationLevel>();
     private RegionCard[] currentVisibleCards;
-    private bool isZooming = false;
-
+    private bool isTransitioning = false;
+    
     private class NavigationLevel
     {
         public RegionCard focusedRegion;
         public RegionCard[] visibleCards;
         public Vector3 cameraPosition;
-        public Quaternion cameraRotation;
+        public Quaternion planetRotation;
+        public GameObject activeVisualLayer;
     }
-
+    
     void Start()
     {
         if (mainCamera == null)
-        {
             mainCamera = Camera.main;
-        }
-
-        initialCameraPosition = mainCamera.transform.position;
-        initialCameraRotation = mainCamera.transform.rotation;
         
+        if (planet == null)
+            planet = GameObject.Find("Planet");
+        
+        // Guardar estado inicial
+        initialCameraPosition = mainCamera.transform.position;
+        initialPlanetRotation = planet.transform.rotation;
+        
+        // Configurar vista inicial
         currentVisibleCards = continentCards;
         ShowCards(continentCards);
         
-        Debug.Log("PlanetController iniciado. Continentes visibles: " + continentCards.Length);
+        // Solo continentes visibles al inicio
+        if (visualLayer_Continents != null)
+            visualLayer_Continents.SetActive(true);
+        if (visualLayer_Countries != null)
+            visualLayer_Countries.SetActive(false);
+        if (visualLayer_States != null)
+            visualLayer_States.SetActive(false);
+        
+        Debug.Log($"🌍 PlanetController inicializado - {continentCards.Length} continentes");
     }
-
+    
     void Update()
     {
-        if (autoRotate && !isZooming)
+        // Auto-rotación cuando no hay transiciones
+        if (autoRotate && !isTransitioning)
         {
             planet.transform.Rotate(Vector3.up, planetRotationSpeed * Time.deltaTime, Space.World);
         }
         
+        // Navegación con ESC o click derecho
         if (Input.GetKeyDown(KeyCode.Escape) || Input.GetMouseButtonDown(1))
         {
             GoBack();
         }
     }
-
+    
+    /// <summary>
+    /// Hacer focus en una región: rota el planeta para centrarla y hace zoom
+    /// </summary>
     public void FocusOnRegion(RegionCard region)
     {
-        if (isZooming) return;
-
-        Debug.Log("═══════════════════════════════════════════════");
-        Debug.Log($"🎯 FOCUS EN: {region.regionName} (Tipo: {region.regionType})");
-        Debug.Log($"📊 Tarjetas hijas: {(region.childRegions != null ? region.childRegions.Length : 0)}");
-        Debug.Log($"🌍 Rotación del planeta ANTES: {planet.transform.rotation.eulerAngles}");
-
-        // CRÍTICO: Detener rotación ANTES de calcular posiciones
+        if (isTransitioning) return;
+        
+        Debug.Log($"\n{'='*50}");
+        Debug.Log($"🎯 FOCUS EN: {region.regionName} ({region.regionType})");
+        
+        // Detener auto-rotación
         autoRotate = false;
-        Debug.Log("⏸️ Auto-rotación DETENIDA");
-
-        // NUEVO: Bloquear posiciones de las tarjetas hijas INMEDIATAMENTE
+        
+        // Bloquear posiciones de las tarjetas hijas ANTES de cualquier movimiento
         if (region.childRegions != null && region.childRegions.Length > 0)
         {
-            Debug.Log($"🔒 Bloqueando {region.childRegions.Length} tarjetas hijas...");
             foreach (var childCard in region.childRegions)
             {
-                if (childCard != null)
+                if (childCard != null && !childCard.rotatesWithPlanet)
                 {
                     childCard.LockPosition();
                 }
             }
         }
-
+        
+        // Guardar nivel actual en el stack
         NavigationLevel currentLevel = new NavigationLevel
         {
             focusedRegion = region,
             visibleCards = currentVisibleCards,
             cameraPosition = mainCamera.transform.position,
-            cameraRotation = mainCamera.transform.rotation
+            planetRotation = planet.transform.rotation,
+            activeVisualLayer = GetCurrentActiveVisualLayer()
         };
         navigationStack.Push(currentLevel);
         
+        // Calcular rotación necesaria para centrar la región
+        Vector3 regionWorldPos = region.transform.position;
+        Vector3 directionToPlanetCenter = planet.transform.position - regionWorldPos;
+        Vector3 targetDirection = mainCamera.transform.position - planet.transform.position;
+        
+        // Rotación objetivo para alinear la región con la cámara
+        Quaternion targetRotation = Quaternion.FromToRotation(directionToPlanetCenter, targetDirection) * planet.transform.rotation;
+        
+        // Calcular distancia de zoom según el tipo de región
+        float targetCameraDistance = GetZoomDistanceForNextLevel(region.regionType);
+        Vector3 targetCameraPosition = planet.transform.position + 
+            (mainCamera.transform.position - planet.transform.position).normalized * targetCameraDistance;
+        
+        // Cambiar capa visual
+        ActivateVisualLayerForType(region.regionType);
+        
+        // Ocultar tarjetas actuales
         HideCards(currentVisibleCards);
         
-        float targetDistance = GetZoomDistanceForNextLevel(region.regionType);
+        // Iniciar transición
+        StartCoroutine(TransitionToRegion(targetRotation, targetCameraPosition, region.childRegions));
         
-        // Obtener la posición ACTUAL de la tarjeta (después de cualquier rotación)
-        Vector3 cardWorldPosition = region.transform.position;
-        
-        // Calcular dirección desde el centro del planeta
-        Vector3 directionFromPlanet = (cardWorldPosition - planet.transform.position).normalized;
-        
-        // Posición objetivo de la cámara
-        Vector3 targetPosition = cardWorldPosition + directionFromPlanet * targetDistance;
-        
-        // Rotación de la cámara mirando hacia la tarjeta
-        Vector3 lookDirection = cardWorldPosition - targetPosition;
-        Quaternion targetRotation = Quaternion.LookRotation(lookDirection);
-        
-        Debug.Log($"📍 Posición tarjeta: {cardWorldPosition}");
-        Debug.Log($"📷 Target cámara: {targetPosition}");
-        Debug.Log("═══════════════════════════════════════════════");
-        
-        StartCoroutine(ZoomToRegion(targetPosition, targetRotation, region.childRegions));
+        Debug.Log($"{'='*50}\n");
     }
-
-    private IEnumerator ZoomToRegion(Vector3 targetPos, Quaternion targetRot, RegionCard[] newCards)
+    
+    /// <summary>
+    /// Corrutina que maneja la transición suave
+    /// </summary>
+    private IEnumerator TransitionToRegion(Quaternion targetPlanetRotation, Vector3 targetCameraPos, RegionCard[] newCards)
     {
-        isZooming = true;
+        isTransitioning = true;
         
-        Vector3 startPos = mainCamera.transform.position;
-        Quaternion startRot = mainCamera.transform.rotation;
-        float elapsed = 0;
-
-        while (elapsed < zoomDuration)
+        Quaternion startPlanetRotation = planet.transform.rotation;
+        Vector3 startCameraPos = mainCamera.transform.position;
+        float elapsed = 0f;
+        
+        while (elapsed < focusRotationDuration)
         {
             elapsed += Time.deltaTime;
-            float t = Mathf.SmoothStep(0, 1, elapsed / zoomDuration);
+            float t = Mathf.SmoothStep(0, 1, elapsed / focusRotationDuration);
             
-            mainCamera.transform.position = Vector3.Lerp(startPos, targetPos, t);
-            mainCamera.transform.rotation = Quaternion.Slerp(startRot, targetRot, t);
+            // Interpolar rotación del planeta
+            planet.transform.rotation = Quaternion.Slerp(startPlanetRotation, targetPlanetRotation, t);
+            
+            // Interpolar posición de cámara (zoom)
+            mainCamera.transform.position = Vector3.Lerp(startCameraPos, targetCameraPos, t);
             
             yield return null;
         }
-
-        mainCamera.transform.position = targetPos;
-        mainCamera.transform.rotation = targetRot;
         
+        // Asegurar valores finales
+        planet.transform.rotation = targetPlanetRotation;
+        mainCamera.transform.position = targetCameraPos;
+        
+        // Mostrar nuevas tarjetas
         if (newCards != null && newCards.Length > 0)
         {
-            Debug.Log("Mostrando " + newCards.Length + " tarjetas nuevas");
-            foreach (var card in newCards)
+            currentVisibleCards = newCards;
+            ShowCards(newCards);
+            Debug.Log($"✅ {newCards.Length} nuevas tarjetas mostradas");
+        }
+        else
+        {
+            currentVisibleCards = null;
+            Debug.LogWarning("⚠️ No hay tarjetas hijas para mostrar");
+        }
+        
+        isTransitioning = false;
+    }
+    
+    /// <summary>
+    /// Volver al nivel anterior
+    /// </summary>
+    public void GoBack()
+    {
+        if (isTransitioning) return;
+        
+        Debug.Log("\n🔙 VOLVER ATRÁS");
+        
+        // Desbloquear y ocultar tarjetas actuales
+        if (currentVisibleCards != null)
+        {
+            foreach (var card in currentVisibleCards)
             {
                 if (card != null)
                 {
-                    card.gameObject.SetActive(true);
-                    Debug.Log("Activando tarjeta: " + card.regionName);
+                    card.UnlockPosition();
+                    card.SetVisibility(false);
                 }
+            }
+        }
+        
+        if (navigationStack.Count > 0)
+        {
+            navigationStack.Pop(); // Quitar nivel actual
+            
+            if (navigationStack.Count > 0)
+            {
+                // Volver al nivel anterior
+                NavigationLevel previousLevel = navigationStack.Pop();
+                
+                // Restaurar capa visual
+                ActivateSpecificVisualLayer(previousLevel.activeVisualLayer);
+                
+                StartCoroutine(TransitionBack(
+                    previousLevel.planetRotation,
+                    previousLevel.cameraPosition,
+                    previousLevel.visibleCards
+                ));
+            }
+            else
+            {
+                // Volver a vista inicial
+                StartCoroutine(TransitionToInitialView());
             }
         }
         else
         {
-            Debug.LogWarning("No hay tarjetas hijas para mostrar!");
+            // Ya estamos en la vista inicial
+            Debug.Log("ℹ️ Ya estamos en la vista inicial");
+        }
+    }
+    
+    /// <summary>
+    /// Transición para volver al nivel anterior
+    /// </summary>
+    private IEnumerator TransitionBack(Quaternion targetPlanetRotation, Vector3 targetCameraPos, RegionCard[] cardsToShow)
+    {
+        isTransitioning = true;
+        
+        Quaternion startPlanetRotation = planet.transform.rotation;
+        Vector3 startCameraPos = mainCamera.transform.position;
+        float elapsed = 0f;
+        
+        while (elapsed < focusRotationDuration)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.SmoothStep(0, 1, elapsed / focusRotationDuration);
+            
+            planet.transform.rotation = Quaternion.Slerp(startPlanetRotation, targetPlanetRotation, t);
+            mainCamera.transform.position = Vector3.Lerp(startCameraPos, targetCameraPos, t);
+            
+            yield return null;
         }
         
-        currentVisibleCards = newCards;
-        ShowCards(newCards);
+        planet.transform.rotation = targetPlanetRotation;
+        mainCamera.transform.position = targetCameraPos;
         
-        isZooming = false;
+        currentVisibleCards = cardsToShow;
+        ShowCards(cardsToShow);
+        
+        isTransitioning = false;
     }
-
+    
+    /// <summary>
+    /// Volver a la vista inicial (continentes)
+    /// </summary>
+    private IEnumerator TransitionToInitialView()
+    {
+        isTransitioning = true;
+        
+        Debug.Log("🏠 Volviendo a vista inicial");
+        
+        Quaternion startPlanetRotation = planet.transform.rotation;
+        Vector3 startCameraPos = mainCamera.transform.position;
+        float elapsed = 0f;
+        
+        while (elapsed < focusRotationDuration)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.SmoothStep(0, 1, elapsed / focusRotationDuration);
+            
+            planet.transform.rotation = Quaternion.Slerp(startPlanetRotation, initialPlanetRotation, t);
+            mainCamera.transform.position = Vector3.Lerp(startCameraPos, initialCameraPosition, t);
+            
+            yield return null;
+        }
+        
+        planet.transform.rotation = initialPlanetRotation;
+        mainCamera.transform.position = initialCameraPosition;
+        
+        // Limpiar stack
+        navigationStack.Clear();
+        
+        // Mostrar solo continentes
+        if (visualLayer_Continents != null)
+            visualLayer_Continents.SetActive(true);
+        if (visualLayer_Countries != null)
+            visualLayer_Countries.SetActive(false);
+        if (visualLayer_States != null)
+            visualLayer_States.SetActive(false);
+        
+        currentVisibleCards = continentCards;
+        ShowCards(continentCards);
+        
+        // Reactivar auto-rotación
+        autoRotate = true;
+        isTransitioning = false;
+    }
+    
+    /// <summary>
+    /// Activar la capa visual correcta según el tipo de región
+    /// </summary>
+    private void ActivateVisualLayerForType(RegionCard.RegionType regionType)
+    {
+        switch (regionType)
+        {
+            case RegionCard.RegionType.Continent:
+                // Al hacer zoom a un continente, mostrar países
+                if (visualLayer_Continents != null) visualLayer_Continents.SetActive(false);
+                if (visualLayer_Countries != null) visualLayer_Countries.SetActive(true);
+                if (visualLayer_States != null) visualLayer_States.SetActive(false);
+                Debug.Log("🗺️ Capa visual: PAÍSES");
+                break;
+                
+            case RegionCard.RegionType.Country:
+                // Al hacer zoom a un país, mostrar estados
+                if (visualLayer_Continents != null) visualLayer_Continents.SetActive(false);
+                if (visualLayer_Countries != null) visualLayer_Countries.SetActive(false);
+                if (visualLayer_States != null) visualLayer_States.SetActive(true);
+                Debug.Log("🗺️ Capa visual: ESTADOS");
+                break;
+                
+            case RegionCard.RegionType.State:
+                // Los estados mantienen su propia capa
+                Debug.Log("🗺️ Capa visual: ESTADOS (mantenida)");
+                break;
+        }
+    }
+    
+    /// <summary>
+    /// Activar una capa visual específica
+    /// </summary>
+    private void ActivateSpecificVisualLayer(GameObject layer)
+    {
+        if (visualLayer_Continents != null) 
+            visualLayer_Continents.SetActive(layer == visualLayer_Continents);
+        if (visualLayer_Countries != null) 
+            visualLayer_Countries.SetActive(layer == visualLayer_Countries);
+        if (visualLayer_States != null) 
+            visualLayer_States.SetActive(layer == visualLayer_States);
+    }
+    
+    /// <summary>
+    /// Obtener la capa visual activa actualmente
+    /// </summary>
+    private GameObject GetCurrentActiveVisualLayer()
+    {
+        if (visualLayer_States != null && visualLayer_States.activeSelf)
+            return visualLayer_States;
+        if (visualLayer_Countries != null && visualLayer_Countries.activeSelf)
+            return visualLayer_Countries;
+        if (visualLayer_Continents != null && visualLayer_Continents.activeSelf)
+            return visualLayer_Continents;
+        
+        return null;
+    }
+    
+    /// <summary>
+    /// Obtener distancia de zoom según el siguiente nivel
+    /// </summary>
     private float GetZoomDistanceForNextLevel(RegionCard.RegionType currentType)
     {
         switch (currentType)
@@ -181,132 +398,15 @@ public class PlanetController : MonoBehaviour
                 return continentZoomDistance;
         }
     }
-
-    public void GoBack()
-    {
-        if (isZooming) return;
-
-        // NUEVO: Desbloquear tarjetas actuales antes de ocultarlas
-        if (currentVisibleCards != null)
-        {
-            foreach (var card in currentVisibleCards)
-            {
-                if (card != null)
-                {
-                    card.UnlockPosition();
-                    card.gameObject.SetActive(false);
-                    card.SetVisibility(false);
-                }
-            }
-        }
-
-        if (navigationStack.Count > 0)
-        {
-            navigationStack.Pop();
-
-            if (navigationStack.Count > 0)
-            {
-                NavigationLevel previousLevel = navigationStack.Pop();
-                
-                StartCoroutine(ZoomToPosition(
-                    previousLevel.cameraPosition,
-                    previousLevel.cameraRotation,
-                    previousLevel.visibleCards
-                ));
-            }
-            else
-            {
-                StartCoroutine(ZoomToInitialView());
-            }
-        }
-        else
-        {
-            StartCoroutine(ZoomToInitialView());
-        }
-    }
-
-    private IEnumerator ZoomToPosition(Vector3 targetPos, Quaternion targetRot, RegionCard[] cardsToShow)
-    {
-        isZooming = true;
-        
-        Vector3 startPos = mainCamera.transform.position;
-        Quaternion startRot = mainCamera.transform.rotation;
-        float elapsed = 0;
-
-        while (elapsed < zoomDuration)
-        {
-            elapsed += Time.deltaTime;
-            float t = Mathf.SmoothStep(0, 1, elapsed / zoomDuration);
-            
-            mainCamera.transform.position = Vector3.Lerp(startPos, targetPos, t);
-            mainCamera.transform.rotation = Quaternion.Slerp(startRot, targetRot, t);
-            
-            yield return null;
-        }
-
-        mainCamera.transform.position = targetPos;
-        mainCamera.transform.rotation = targetRot;
-        
-        if (cardsToShow != null)
-        {
-            foreach (var card in cardsToShow)
-            {
-                if (card != null)
-                {
-                    card.gameObject.SetActive(true);
-                }
-            }
-        }
-        
-        currentVisibleCards = cardsToShow;
-        ShowCards(cardsToShow);
-        
-        isZooming = false;
-    }
-
-    private IEnumerator ZoomToInitialView()
-    {
-        isZooming = true;
-        
-        Vector3 startPos = mainCamera.transform.position;
-        Quaternion startRot = mainCamera.transform.rotation;
-        float elapsed = 0;
-
-        while (elapsed < zoomDuration)
-        {
-            elapsed += Time.deltaTime;
-            float t = Mathf.SmoothStep(0, 1, elapsed / zoomDuration);
-            
-            mainCamera.transform.position = Vector3.Lerp(startPos, initialCameraPosition, t);
-            mainCamera.transform.rotation = Quaternion.Slerp(startRot, initialCameraRotation, t);
-            
-            yield return null;
-        }
-
-        mainCamera.transform.position = initialCameraPosition;
-        mainCamera.transform.rotation = initialCameraRotation;
-        
-        navigationStack.Clear();
-        
-        currentVisibleCards = continentCards;
-        foreach (var card in continentCards)
-        {
-            if (card != null)
-            {
-                card.gameObject.SetActive(true);
-            }
-        }
-        ShowCards(continentCards);
-        
-        autoRotate = true; // Reactivar rotación solo al volver a la vista inicial
-        isZooming = false;
-    }
-
+    
+    /// <summary>
+    /// Mostrar un conjunto de tarjetas
+    /// </summary>
     private void ShowCards(RegionCard[] cards)
     {
         if (cards == null || cards.Length == 0)
         {
-            Debug.LogWarning("No hay tarjetas para mostrar");
+            Debug.LogWarning("⚠️ No hay tarjetas para mostrar");
             return;
         }
         
@@ -314,12 +414,17 @@ public class PlanetController : MonoBehaviour
         {
             if (card != null)
             {
+                card.gameObject.SetActive(true);
                 card.SetVisibility(true);
-                Debug.Log("Mostrando tarjeta: " + card.regionName);
             }
         }
+        
+        Debug.Log($"👁️ {cards.Length} tarjetas mostradas");
     }
-
+    
+    /// <summary>
+    /// Ocultar un conjunto de tarjetas
+    /// </summary>
     private void HideCards(RegionCard[] cards)
     {
         if (cards == null) return;
@@ -331,5 +436,7 @@ public class PlanetController : MonoBehaviour
                 card.SetVisibility(false);
             }
         }
+        
+        Debug.Log($"🙈 Tarjetas ocultadas");
     }
 }
