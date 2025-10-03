@@ -1,12 +1,10 @@
 using UnityEngine;
 
-/// <summary>
-/// Script para configurar el planeta base. Adjuntar al GameObject "Planet"
-/// </summary>
 public class PlanetSetup : MonoBehaviour
 {
     [Header("Configuración Visual")]
-    [SerializeField] private Color planetColor = new Color(0.16f, 0.20f, 0.25f); // #2A3440
+    [SerializeField] private Texture2D worldTexture; // Arrastra tu imagen aquí
+    [SerializeField] private Color planetColor = new Color(0.16f, 0.20f, 0.25f);
     
     void Start()
     {
@@ -18,11 +16,23 @@ public class PlanetSetup : MonoBehaviour
         MeshRenderer renderer = GetComponent<MeshRenderer>();
         if (renderer == null) return;
         
-        // Crear material unlit con color sólido (estilo flat)
-        Material planetMat = new Material(Shader.Find("Unlit/Color"));
-        planetMat.color = planetColor;
-        renderer.material = planetMat;
+        Material planetMat;
         
-        Debug.Log("✅ Material del planeta configurado");
+        if (worldTexture != null)
+        {
+            // Usar textura
+            planetMat = new Material(Shader.Find("Unlit/Texture"));
+            planetMat.mainTexture = worldTexture;
+            Debug.Log("Textura del planeta aplicada");
+        }
+        else
+        {
+            // Color sólido si no hay textura
+            planetMat = new Material(Shader.Find("Unlit/Color"));
+            planetMat.color = planetColor;
+            Debug.Log("Color sólido aplicado");
+        }
+        
+        renderer.material = planetMat;
     }
 }

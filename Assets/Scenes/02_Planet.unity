@@ -297,7 +297,7 @@ GameObject:
   - component: {fileID: 126033187}
   m_Layer: 0
   m_Name: Main Camera
-  m_TagString: Untagged
+  m_TagString: MainCamera
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -446,6 +446,7 @@ GameObject:
   - component: {fileID: 144463792}
   - component: {fileID: 144463791}
   - component: {fileID: 144463790}
+  - component: {fileID: 144463794}
   m_Layer: 0
   m_Name: Planet
   m_TagString: Untagged
@@ -461,16 +462,15 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 144463788}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0.4253055, z: 0, w: 0.90504986}
+  m_LocalRotation: {x: 0, y: 0.26429388, z: 0, w: 0.9644422}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 537978821}
   - {fileID: 1132151640}
   - {fileID: 8516152}
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 50.34, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 30.65, z: 0}
 --- !u!114 &144463790
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -483,7 +483,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9a795f4536ff4404290d845c3a642197, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlanetSetup
-  planetColor: {r: 0.16, g: 0.2, b: 0.25, a: 1}
+  worldTexture: {fileID: 2800000, guid: b9033274691237044bba96d506c7d727, type: 3}
+  planetColor: {r: 0.21960786, g: 0.21960786, b: 0.21960786, a: 1}
 --- !u!135 &144463791
 SphereCollider:
   m_ObjectHideFlags: 0
@@ -560,6 +561,28 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 144463788}
+  m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!64 &144463794
+MeshCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 144463788}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
   m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
 --- !u!1 &168672960
 GameObject:
@@ -1576,42 +1599,6 @@ MonoBehaviour:
   enableGlow: 1
   glowIntensity: 1.5
   glowSpeed: 2
---- !u!1 &537978820
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 537978821}
-  m_Layer: 0
-  m_Name: VisualLayer_Continents
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &537978821
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 537978820}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 1184872081}
-  - {fileID: 1065437518}
-  - {fileID: 1686126454}
-  - {fileID: 1225026388}
-  - {fileID: 1435428661}
-  m_Father: {fileID: 144463789}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &589414695
 GameObject:
   m_ObjectHideFlags: 0
@@ -1935,14 +1922,14 @@ MonoBehaviour:
   - {fileID: 234384039}
   - {fileID: 1595423127}
   zoomDuration: 1.5
-  continentZoomDistance: 10
-  countryZoomDistance: 7
+  continentZoomDistance: 1
+  countryZoomDistance: 1
   stateZoomDistance: 5
   plantZoomDistance: 8
-  planetRotationSpeed: 4
-  autoRotate: 0
+  planetRotationSpeed: 5
+  autoRotate: 1
   focusRotationDuration: 1.2
-  visualLayer_Continents: {fileID: 537978820}
+  visualLayer_Continents: {fileID: 0}
   visualLayer_Countries: {fileID: 1132151639}
   visualLayer_States: {fileID: 8516151}
 --- !u!4 &706851519
@@ -2722,58 +2709,6 @@ Transform:
   - {fileID: 1568177590}
   m_Father: {fileID: 883618889}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1065437517
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1065437518}
-  - component: {fileID: 1065437519}
-  m_Layer: 0
-  m_Name: Sprite_AmericadelSur
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1065437518
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1065437517}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 537978821}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1065437519
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1065437517}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b30ceafa1ca7c7d4eb05c02e99a0037d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ContinentSprite
-  spriteImage: {fileID: 21300000, guid: 42abff0e512660a41ad1ce82fdd4fe21, type: 3}
-  spriteColor: {r: 0.89, g: 0.22, b: 0.22, a: 1}
-  offsetFromSurface: 0
-  flipX: 0
-  flipY: 0
-  rotationOffsetEuler: {x: 0, y: 180, z: 0}
-  positionOnPlanet: {x: 3.82, y: -12.1, z: -86.2}
-  scale: 0.015
 --- !u!1 &1132151639
 GameObject:
   m_ObjectHideFlags: 0
@@ -2805,7 +2740,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 144463789}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1184872080
+--- !u!1 &1239781250
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -2813,102 +2748,72 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1184872081}
-  - component: {fileID: 1184872082}
+  - component: {fileID: 1239781252}
+  - component: {fileID: 1239781251}
   m_Layer: 0
-  m_Name: Sprite_America
+  m_Name: PlanetClickDetector
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &1184872081
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1184872080}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: -1, z: 0, w: 0}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 537978821}
-  m_LocalEulerAnglesHint: {x: 0, y: -180, z: 0}
---- !u!114 &1184872082
+--- !u!114 &1239781251
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1184872080}
+  m_GameObject: {fileID: 1239781250}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b30ceafa1ca7c7d4eb05c02e99a0037d, type: 3}
+  m_Script: {fileID: 11500000, guid: 01d15e70f42f4674e9b2fbe7d3b039ad, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ContinentSprite
-  spriteImage: {fileID: 21300000, guid: d74eeba8aa6445541aa6bbd7f6782c74, type: 3}
-  spriteColor: {r: 0.89, g: 0.22, b: 0.22, a: 1}
-  offsetFromSurface: 0
-  flipX: 1
-  flipY: 0
-  rotationOffsetEuler: {x: 0, y: 0, z: 0}
-  positionOnPlanet: {x: -8.1, y: 31.1, z: -86.2}
-  scale: 0.032
---- !u!1 &1225026387
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1225026388}
-  - component: {fileID: 1225026389}
-  m_Layer: 0
-  m_Name: Sprite_Europa
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1225026388
+  m_EditorClassIdentifier: Assembly-CSharp::PixelPerfectPlanetClick
+  planet: {fileID: 144463788}
+  colorMask: {fileID: 2800000, guid: a72bc140b2dc1eb44a5dd4eb178bc019, type: 3}
+  colorMappings:
+  - regionName: "\xC1frica"
+    maskColor: {r: 1, g: 0, b: 0, a: 0}
+    regionType: 0
+    childRegions: []
+  - regionName: Europa
+    maskColor: {r: 0, g: 0.8, b: 0.02, a: 0}
+    regionType: 0
+    childRegions: []
+  - regionName: Asia
+    maskColor: {r: 0.14, g: 0.34, b: 0.99, a: 0}
+    regionType: 0
+    childRegions: []
+  - regionName: "Am\xE9rica del Norte"
+    maskColor: {r: 0.73, g: 0.71, b: 0.03, a: 0}
+    regionType: 0
+    childRegions: []
+  - regionName: "Am\xE9rica del Sur"
+    maskColor: {r: 1, g: 0, b: 1, a: 0}
+    regionType: 0
+    childRegions: []
+  - regionName: "Ocean\xEDa"
+    maskColor: {r: 0, g: 0.78, b: 0.78, a: 0}
+    regionType: 0
+    childRegions: []
+  showDebugLogs: 1
+  showMaskOnPlanet: 0
+  debugMarker: {fileID: 0}
+--- !u!4 &1239781252
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1225026387}
+  m_GameObject: {fileID: 1239781250}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: -1, z: 0, w: 0}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.21954, y: 0.34688, z: -1.14882}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 537978821}
-  m_LocalEulerAnglesHint: {x: 0, y: -180, z: 0}
---- !u!114 &1225026389
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1225026387}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b30ceafa1ca7c7d4eb05c02e99a0037d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ContinentSprite
-  spriteImage: {fileID: 21300000, guid: 65d996dd416efb341816973d6c243fcd, type: 3}
-  spriteColor: {r: 0.89, g: 0.22, b: 0.22, a: 1}
-  offsetFromSurface: 0
-  flipX: 1
-  flipY: 0
-  rotationOffsetEuler: {x: 0, y: 0, z: 0}
-  positionOnPlanet: {x: 58.3, y: 48.8, z: -86.2}
-  scale: 0.02
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!21 &1244034343
 Material:
   serializedVersion: 8
@@ -3370,58 +3275,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1386363415}
   m_Mesh: {fileID: 10210, guid: 0000000000000000e000000000000000, type: 0}
---- !u!1 &1435428660
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1435428661}
-  - component: {fileID: 1435428662}
-  m_Layer: 0
-  m_Name: Sprite_Asia
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1435428661
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1435428660}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: -1, z: 0, w: 0}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 537978821}
-  m_LocalEulerAnglesHint: {x: 0, y: -180, z: 0}
---- !u!114 &1435428662
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1435428660}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b30ceafa1ca7c7d4eb05c02e99a0037d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ContinentSprite
-  spriteImage: {fileID: 21300000, guid: a6f2620bcf7b4b94eafd71774bff4880, type: 3}
-  spriteColor: {r: 0.89, g: 0.22, b: 0.22, a: 1}
-  offsetFromSurface: 0
-  flipX: 1
-  flipY: 0
-  rotationOffsetEuler: {x: 0, y: 0, z: 0}
-  positionOnPlanet: {x: 258.8, y: 48.8, z: -86.2}
-  scale: 0.02
 --- !u!1 &1503528262
 GameObject:
   m_ObjectHideFlags: 0
@@ -4651,58 +4504,6 @@ Material:
     - _Color: {r: 1, g: 1, b: 1, a: 0.9}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
---- !u!1 &1686126453
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1686126454}
-  - component: {fileID: 1686126455}
-  m_Layer: 0
-  m_Name: Sprite_Africa
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1686126454
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1686126453}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: -1, z: 0, w: 0}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 537978821}
-  m_LocalEulerAnglesHint: {x: 0, y: -180, z: 0}
---- !u!114 &1686126455
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1686126453}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b30ceafa1ca7c7d4eb05c02e99a0037d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ContinentSprite
-  spriteImage: {fileID: 21300000, guid: fc6edeb3cdc1f044a9555fa773bc9451, type: 3}
-  spriteColor: {r: 0.89, g: 0.22, b: 0.22, a: 1}
-  offsetFromSurface: 0
-  flipX: 1
-  flipY: 0
-  rotationOffsetEuler: {x: 0, y: 0, z: 0}
-  positionOnPlanet: {x: 58.3, y: -12.1, z: -86.2}
-  scale: 0.02
 --- !u!1 &1807412186
 GameObject:
   m_ObjectHideFlags: 0
@@ -5055,3 +4856,4 @@ SceneRoots:
   - {fileID: 706851519}
   - {fileID: 1938738165}
   - {fileID: 1807412188}
+  - {fileID: 1239781252}
