@@ -119,6 +119,33 @@ public class AreaOverlayPainter : MonoBehaviour
         if (areaManager != null) areaManager.OnAreaClicked(area);
         else if (enableDebug) QCLog.Warn("[AreaOverlayPainter] HandleAreaClick sin AreaManager.");
     }
+
+    public void RefreshAreaVisual(GameObject area)
+    {
+        if (!area) return;
+
+        if (_areaOverlays.TryGetValue(area, out var overlayData))
+        {
+            UpdateOverlayColorFromManager(overlayData, area);
+            return;
+        }
+
+        foreach (var kv in _areaOverlays)
+        {
+            if (!kv.Key) continue;
+            if (ReferenceEquals(kv.Key, area))
+            {
+                UpdateOverlayColorFromManager(kv.Value, kv.Key);
+                return;
+            }
+
+            if (string.Equals(NormalizeKey(kv.Key.name), NormalizeKey(area.name), System.StringComparison.OrdinalIgnoreCase))
+            {
+                UpdateOverlayColorFromManager(kv.Value, kv.Key);
+                return;
+            }
+        }
+    }
     #endregion
 
     #region Internal Helpers
@@ -130,6 +157,23 @@ public class AreaOverlayPainter : MonoBehaviour
             CreateOverlayForArea(area);
         }
     }
+
+public void RegisterArea(GameObject area)
+{
+    if (!area) return;
+    if (_areaOverlays.ContainsKey(area)) return;
+
+    CreateOverlayForArea(area);          // reutiliza tu flujo actual
+    if (_isTopDownMode)                  // si ya estás en MAPA, que aparezca pintado
+        UpdateOverlayColorFromManager(_areaOverlays[area], area);
+}
+
+public void RefreshAllOverlayColors()
+{
+    foreach (var kv in _areaOverlays)
+        UpdateOverlayColorFromManager(kv.Value, kv.Key);
+}
+
 
     private List<GameObject> GetAreasFromManager()
         => areaManager != null ? (areaManager.GetAreaObjects() ?? new List<GameObject>()) : new List<GameObject>();

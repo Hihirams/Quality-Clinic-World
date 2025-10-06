@@ -49,7 +49,7 @@ public class RegionCard : MonoBehaviour
     
     void Start()
     {
-        planetController = FindObjectOfType<PlanetController>();
+        planetController = FindFirstObjectByType<PlanetController>();
         planet = GameObject.Find("Planet");
         
         SetupVisuals();

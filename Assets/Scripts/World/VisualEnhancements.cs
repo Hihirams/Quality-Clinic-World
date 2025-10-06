@@ -76,7 +76,9 @@ public class VisualEnhancements : MonoBehaviour
         // Glow effect (pulsación sutil)
         if (enableGlow && cardMaterial != null)
         {
-            float glow = 1f + Mathf.Sin(Time.time * glowSpeed) * 0.1f;
+            float amplitude = 0.1f * glowIntensity;
+            float glow = 1f + Mathf.Sin(Time.time * glowSpeed) * amplitude;
+            glow = Mathf.Max(0f, glow);
             Color glowColor = originalColor * glow;
             glowColor.a = originalColor.a;
             cardMaterial.color = glowColor;

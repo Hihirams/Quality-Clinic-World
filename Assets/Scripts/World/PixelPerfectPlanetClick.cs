@@ -38,11 +38,11 @@ public class PixelPerfectPlanetClick : MonoBehaviour
         if (mainCamera == null)
             mainCamera = Camera.main;
         if (mainCamera == null)
-            mainCamera = FindObjectOfType<Camera>();
+            mainCamera = FindFirstObjectByType<Camera>();
         if (mainCamera == null)
             mainCamera = GameObject.Find("Main Camera")?.GetComponent<Camera>();
             
-        planetController = FindObjectOfType<PlanetController>();
+        planetController = FindFirstObjectByType<PlanetController>();
         
         if (planet == null)
         {

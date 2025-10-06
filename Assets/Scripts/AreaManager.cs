@@ -810,6 +810,48 @@ public class AreaManager : MonoBehaviour
         QCLog.Info($"[PreciseColliders] Inicializados {preciseColliders.Count} colliders con dimensiones reales");
     }
 
+public void AddArea(GameObject areaObj, AreaData data)
+{
+    if (areaObj == null || data == null) return;
+
+    // 1) Listado y datos
+    if (!areaObjects.Contains(areaObj))
+        areaObjects.Add(areaObj);
+
+    string key = GetAreaKey(areaObj.name);  // tu helper que normaliza AREA_*
+    areaDataDict[key] = data;
+
+    // 2) Posiciones/bounds (para cámara y click)
+    RegisterRealAreaPositions();            // vuelve a calcular centers/bounds
+    SetupAreaCollider(areaObj);             // asegura collider si no tenía
+
+    // 3) Overlays
+    if (overlayPainter == null)
+        overlayPainter = FindFirstObjectByType<AreaOverlayPainter>();
+    overlayPainter?.RegisterArea(areaObj);
+
+    // 4) Top-Down (opcional pero recomendable si cambia el tamaño total del mapa)
+    if (topDownController != null && enableTopDownView)
+    {
+        // Recalcular framing con las nuevas bounds
+        Vector3 plantCenter = CalculatePlantCenter();
+        Vector2 plantSize = CalculatePlantSize();
+        var settings = new TopDownCameraController.TopDownSettings
+        {
+            cameraHeight = Mathf.Max(150f, Mathf.Max(plantSize.x, plantSize.y) * 1.1f),
+            cameraAngle  = 22f,
+            plantCenter  = plantCenter,
+            viewportWidth  = plantSize.x * fitPadding,
+            viewportDepth  = plantSize.y * fitPadding
+        };
+        topDownController.ApplySettings(settings);
+    }
+
+    // 5) Labels manuales (si los usas)
+    NotifyManualLabelsUpdate();
+}
+
+
     /// <summary>
     /// Configura colliders precisos usando datos precalculados en InitializePreciseColliders.
     /// Método invocable con F12 para debugging.
@@ -835,7 +877,7 @@ public class AreaManager : MonoBehaviour
             {
                 var existing = existingColliders[i];
                 if (existing == null) continue;
-                
+
                 if (Application.isPlaying)
                     Destroy(existing);
                 else
@@ -1421,6 +1463,55 @@ public class AreaManager : MonoBehaviour
             status = "High risk",
             statusColor = AppleTheme.Status(49f)
         };
+
+        // === NUEVO: Cargar AreaConfigSO desde Resources/Areas y mezclarlos con hardcoded ===
+        var cfgs = Resources.LoadAll<AreaConfigSO>("Areas");
+        foreach (var cfg in cfgs)
+        {
+            if (cfg == null || string.IsNullOrEmpty(cfg.areaKey)) continue;
+
+            var data = new AreaData
+            {
+                areaName = cfg.areaKey,
+                displayName = string.IsNullOrWhiteSpace(cfg.displayName) ? cfg.areaKey : cfg.displayName,
+                delivery = cfg.delivery,
+                quality = cfg.quality,
+                parts = cfg.parts,
+                processManufacturing = cfg.processManufacturing,
+                trainingDNA = cfg.trainingDNA,
+                mtto = cfg.mtto,
+                overallResult = cfg.OverallResult,
+                status = string.Empty,
+                statusColor = AppleTheme.Status(cfg.OverallResult)
+            };
+
+            if (!areaDataDict.ContainsKey(cfg.areaKey))
+                areaDataDict.Add(cfg.areaKey, data);
+            else
+                areaDataDict[cfg.areaKey] = data;
+        }
+
+        // === NUEVO: refresco visual de overlays y labels para las areas cargadas por SO ===
+        foreach (var cfg in cfgs)
+        {
+            if (cfg == null || string.IsNullOrEmpty(cfg.areaKey)) continue;
+
+            var areaGO = GameObject.Find($"Area_{cfg.areaKey}");
+            if (areaGO == null) continue;
+
+            var painter = areaGO.GetComponentInChildren<AreaOverlayPainter>(true);
+            if (painter != null)
+            {
+                painter.RefreshAreaVisual(areaGO);
+            }
+
+            var label = areaGO.GetComponentInChildren<ManualAreaLabel>(true);
+            if (label != null)
+            {
+                label.areaKey = cfg.areaKey;
+                label.ForceRefresh();
+            }
+        }
     }
 
     #endregion
