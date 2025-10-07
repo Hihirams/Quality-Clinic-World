@@ -1,4 +1,5 @@
 /*
-!/Assets/
-!/.gitignore
-!/.gitattributes
+!.gitignore
+!Assets/
+!Packages/
+!ProjectSettings/
