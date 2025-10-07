@@ -1412,66 +1412,6 @@ if (card != null)
     /// </summary>
     private void InitializeAreaData()
     {
-        areaDataDict["ATHONDA"] = new AreaData
-        {
-            areaName = "ATHONDA",
-            displayName = "AT Honda",
-            delivery = 100f,
-            quality = 83f,
-            parts = 100f,
-            processManufacturing = 100f,
-            trainingDNA = 100f,
-            mtto = 100f,
-            overallResult = 95f,
-            status = "Optimus",
-            statusColor = AppleTheme.Status(95f) // Usa AppleTheme
-        };
-
-        areaDataDict["VCTL4"] = new AreaData
-        {
-            areaName = "VCTL4",
-            displayName = "VCT L4",
-            delivery = 77f,
-            quality = 83f,
-            parts = 100f,
-            processManufacturing = 100f,
-            trainingDNA = 81f,
-            mtto = 100f,
-            overallResult = 92f,
-            status = "Optimus",
-            statusColor = AppleTheme.Status(92f)
-        };
-
-        areaDataDict["BUZZERL2"] = new AreaData
-        {
-            areaName = "BUZZERL2",
-            displayName = "BUZZER L2",
-            delivery = 91f,
-            quality = 83f,
-            parts = 81f,
-            processManufacturing = 89f,
-            trainingDNA = 62f,
-            mtto = 100f,
-            overallResult = 73f,
-            status = "Sick",
-            statusColor = AppleTheme.Status(73f)
-        };
-
-        areaDataDict["VBL1"] = new AreaData
-        {
-            areaName = "VBL1",
-            displayName = "VB L1",
-            delivery = 29f,
-            quality = 83f,
-            parts = 100f,
-            processManufacturing = 32f,
-            trainingDNA = 100f,
-            mtto = 47f,
-            overallResult = 49f,
-            status = "High risk",
-            statusColor = AppleTheme.Status(49f)
-        };
-
         // === NUEVO: Cargar AreaConfigSO desde Resources/Areas y mezclarlos con hardcoded ===
         var cfgs = Resources.LoadAll<AreaConfigSO>("Areas");
         foreach (var cfg in cfgs)

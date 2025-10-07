@@ -10,14 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8878ca559b41cf044a1e1a3896889118, type: 3}
-  m_Name: AreaConfig_TEST3
+  m_Name: AreaConfig_VBL1
   m_EditorClassIdentifier: Assembly-CSharp::AreaConfigSO
-  areaKey: TEST3
-  displayName: Area TEST3
-  delivery: 69.4
-  quality: 95
-  parts: 42.6
-  processManufacturing: 74.3
-  trainingDNA: 35.5
-  mtto: 55.5
-  overallResult: 62.05
+  areaKey: VBL1
+  displayName: VB L1
+  delivery: 91
+  quality: 32
+  parts: 50
+  processManufacturing: 32
+  trainingDNA: 61
+  mtto: 32
+  overallResult: 49.666668

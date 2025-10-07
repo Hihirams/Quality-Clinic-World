@@ -10,14 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8878ca559b41cf044a1e1a3896889118, type: 3}
-  m_Name: AreaConfig_TEST
+  m_Name: AreaConfig_BUZZERL2
   m_EditorClassIdentifier: Assembly-CSharp::AreaConfigSO
-  areaKey: TEST
-  displayName: Area Test
-  delivery: 61.1
-  quality: 95
-  parts: 66.9
-  processManufacturing: 95
-  trainingDNA: 80
-  mtto: 57.8
-  overallResult: 75.96667
+  areaKey: BUZZERL2
+  displayName: BUZZER L2
+  delivery: 91
+  quality: 83
+  parts: 81
+  processManufacturing: 57.8
+  trainingDNA: 62
+  mtto: 68.8
+  overallResult: 73.933334

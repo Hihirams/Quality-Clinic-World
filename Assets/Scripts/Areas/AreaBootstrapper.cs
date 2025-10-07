@@ -1,8 +1,10 @@
 using System.Collections.Generic;
 using UnityEngine;
 using AreaData = AreaManager.AreaData;
-#if TMP_PRESENT || TEXTMESHPRO_PRESENT
-using TMPro;
+using TMPro;            // <— ¡siempre!
+using UnityEngine.UI;   // <— ¡siempre!
+#if UNITY_EDITOR
+
 #endif
 
 /// <summary>
@@ -105,7 +107,6 @@ if (mgr != null && config != null)
     var painter = FindFirstObjectByType<AreaOverlayPainter>();
     if (painter != null)
     {
-        painter.RegisterArea(gameObject);      // crea overlay (mesh/quad)
         painter.RefreshAreaVisual(gameObject); // aplica color según overall
     }
 }
@@ -197,115 +198,124 @@ if (mgr != null && config != null)
     #endregion
 
     #region AreaCard
-    private void SetupAreaCard()
+private void SetupAreaCard()
+{
+    // Intentar obtener componente existente en el mismo objeto (no hijos)
+    AreaCard card = GetComponent<AreaCard>();
+    if (card == null)
     {
-        // Buscar AreaCard existente en hijos
-        AreaCard card = GetComponentInChildren<AreaCard>(true);
-        if (card == null)
-        {
-            // Crear holder
-            var cardGO = new GameObject("AreaCard");
-            cardGO.transform.SetParent(transform, false);
-
-            // Colocar sobre el área
-            cardGO.transform.position = new Vector3(
-                _worldBounds.center.x,
-                _worldBounds.max.y + cardHeightOffset,
-                _worldBounds.center.z
-            );
-
-            card = cardGO.AddComponent<AreaCard>();
-        }
-
-        // Asignar info mínima a la card
-        card.areaName = "AREA_" + config.areaKey;    // OK
-        if (card.areaData == null) card.areaData = new AreaData();
-        // antes ponías el displayName como areaName; mejor separarlos:
-        card.areaData.areaName    = config.areaKey;       // <— clave real
-        card.areaData.displayName = config.displayName;   // <— nombre bonito
-        card.areaData.overallResult = config.OverallResult;
-
-
-        // Activar la card (si tu script tiene API pública para ello)
-        card.SetCardActive(true);
+        card = gameObject.AddComponent<AreaCard>();
     }
+
+    // Cargar datos desde el config
+    card.areaName = "AREA_" + config.areaKey;
+    if (card.areaData == null)
+        card.areaData = new AreaData();
+
+    card.areaData.areaName      = config.areaKey;
+    card.areaData.displayName   = config.displayName;
+    card.areaData.overallResult = config.OverallResult;
+
+    // Mantener activa la tarjeta (se autogenera visualmente desde AreaCard)
+    card.SetCardActive(true);
+}
+
     #endregion
 
     #region ManualAreaLabel
-    private void SetupManualLabel()
+private void SetupManualLabel()
+{
+    // Buscar label existente por convención
+    string expectedName = (labelObjectPrefix + config.areaKey);
+    Transform labelTr = transform.Find(expectedName);
+
+    if (labelTr == null)
     {
-        // Buscar label existente por convención
-        string expectedName = (labelObjectPrefix + config.areaKey);
-        Transform labelTr = transform.Find(expectedName);
+        // Crear label vacío (padre)
+        var labelGO = new GameObject(expectedName);
+        labelGO.transform.SetParent(transform, false);
+        labelGO.transform.position = new Vector3(
+            _worldBounds.center.x,
+            labelHeightY,
+            _worldBounds.center.z
+        );
+        labelTr = labelGO.transform;
 
-        if (labelTr == null)
-        {
-            // Crear label vacío
-            var labelGO = new GameObject(expectedName);
-            labelGO.transform.SetParent(transform, false);
-            labelGO.transform.position = new Vector3(
-                _worldBounds.center.x,
-                labelHeightY,
-                _worldBounds.center.z
-            );
-            labelTr = labelGO.transform;
+        // --- Canvas WorldSpace + Raycaster ---
+        var canvas = labelGO.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.WorldSpace;
+        canvas.overrideSorting = true;
+        canvas.sortingOrder = labelSortingOrder;
+        labelGO.AddComponent<GraphicRaycaster>();
 
-            // Canvas worldspace + textos
-            var canvas = labelGO.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.WorldSpace;
-            canvas.sortingOrder = labelSortingOrder;
+        var crt = canvas.transform as RectTransform;
+        crt.sizeDelta = new Vector2(2f, 2f);
+        crt.localScale = Vector3.one * 0.2f;
 
-#if TMP_PRESENT || TEXTMESHPRO_PRESENT
-            var nameObj = new GameObject("NameText");
-            nameObj.transform.SetParent(canvas.transform, false);
-            var nameTMP = nameObj.AddComponent<TextMeshProUGUI>();
-            nameTMP.text = config.displayName;
-            nameTMP.alignment = TextAlignmentOptions.Center;
-            nameTMP.fontSize = 6f;
+        // --- NameText (TMP) ---
+        var nameObj = new GameObject("NameText", typeof(RectTransform), typeof(TextMeshProUGUI));
+        nameObj.transform.SetParent(canvas.transform, false);
+        var nameTMP = nameObj.GetComponent<TextMeshProUGUI>();
+        nameTMP.text = string.IsNullOrWhiteSpace(config.displayName) ? config.areaKey : config.displayName;
+        nameTMP.alignment = TextAlignmentOptions.Center;
+        nameTMP.enableWordWrapping = false;
+        nameTMP.fontSize = 36f;
+        var nrt = nameTMP.rectTransform;
+        nrt.anchorMin = nrt.anchorMax = new Vector2(0.5f, 0.5f);
+        nrt.pivot = new Vector2(0.5f, 0.5f);
+        nrt.anchoredPosition = new Vector2(0f, 0.35f);
 
-            var pctObj = new GameObject("PercentText");
-            pctObj.transform.SetParent(canvas.transform, false);
-            var pctTMP = pctObj.AddComponent<TextMeshProUGUI>();
-            pctTMP.text = $"{config.OverallResult:F0}%";
-            pctTMP.alignment = TextAlignmentOptions.Center;
-            pctTMP.fontSize = 6f;
+        // --- PercentText (TMP) ---
+        var pctObj = new GameObject("PercentText", typeof(RectTransform), typeof(TextMeshProUGUI));
+        pctObj.transform.SetParent(canvas.transform, false);
+        var pctTMP = pctObj.GetComponent<TextMeshProUGUI>();
+        pctTMP.text = $"{config.OverallResult:F0}%";
+        pctTMP.alignment = TextAlignmentOptions.Center;
+        pctTMP.enableWordWrapping = false;
+        pctTMP.fontSize = 42f;
+        pctTMP.fontStyle = FontStyles.Bold;
+        var prt = pctTMP.rectTransform;
+        prt.anchorMin = prt.anchorMax = new Vector2(0.5f, 0.5f);
+        prt.pivot = new Vector2(0.5f, 0.5f);
+        prt.anchoredPosition = new Vector2(0f, -0.35f);
 
-            // Centrar ambos en el canvas
-            nameTMP.rectTransform.anchoredPosition = new Vector2(0f, 0.18f);
-            pctTMP.rectTransform.anchoredPosition  = new Vector2(0f, -0.14f);
-#endif
-        }
+        // --- ManualAreaLabel (control y visibilidad TopDown) ---
+        var label = labelGO.AddComponent<ManualAreaLabel>();
+        label.autoDetectAreaFromHierarchy = true;
+        label.onlyShowInStaticTopDown = true;
+        label.whiteWithBlackOutlineInStatic = true;
+        label.canvasSortingOrder = labelSortingOrder;
+        label.labelHeightY = labelHeightY;
+        label.nameText = nameTMP;
+        label.percentText = pctTMP;
 
-        // Asegurar componente ManualAreaLabel y enlazar referencias si existen
-        var label = labelTr.GetComponent<ManualAreaLabel>();
-        if (label == null) label = labelTr.gameObject.AddComponent<ManualAreaLabel>();
-
-        label.areaKey = config.areaKey;                 // autodetección también funciona si está vacío
-        label.onlyShowInStaticTopDown = true;           // como usas vista de mapa
+        // Fallbacks (por si AreaManager aún no tiene datos)
+        var t = label.GetType();
+        t.GetField("fallbackDisplayName",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public)
+            ?.SetValue(label, nameTMP.text);
+        t.GetField("fallbackOverall",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public)
+            ?.SetValue(label, config.OverallResult);
+    }
+    else
+    {
+        // Si ya había Label_*, asegurar componente y enlazar textos si faltan
+        var label = labelTr.GetComponent<ManualAreaLabel>() ?? labelTr.gameObject.AddComponent<ManualAreaLabel>();
+        label.onlyShowInStaticTopDown = true;
         label.canvasSortingOrder = labelSortingOrder;
         label.labelHeightY = labelHeightY;
 
-#if TMP_PRESENT || TEXTMESHPRO_PRESENT
-        // Intenta enlazar textos si existen
-        if (label.nameText == null)
+        // Enlazar NameText y PercentText si existen
+        var tmps = labelTr.GetComponentsInChildren<TextMeshProUGUI>(true);
+        foreach (var tmp in tmps)
         {
-            var nameTMP = labelTr.GetComponentInChildren<TextMeshProUGUI>(true);
-            if (nameTMP != null && nameTMP.name.Contains("Name")) label.nameText = nameTMP;
+            if (tmp.name.Contains("Name") && label.nameText == null) label.nameText = tmp;
+            if (tmp.name.Contains("Percent") && label.percentText == null) label.percentText = tmp;
         }
-        if (label.percentText == null)
-        {
-            foreach (var tmp in labelTr.GetComponentsInChildren<TextMeshProUGUI>(true))
-            {
-                if (tmp.name.Contains("Percent")) { label.percentText = tmp; break; }
-            }
-        }
-#endif
-
-        // Como todavía el AreaManager no conoce esta área, el porcentaje del label
-        // se verá 0% cuando el script de label consulte al manager.
-        // Por ahora dejamos los textos iniciales (ya seteados arriba).
-        // En cuanto conectemos el AreaManager, el label se actualizará solo.
     }
+}
+
     #endregion
 
     #region Registro en AreaManager

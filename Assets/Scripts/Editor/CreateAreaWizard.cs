@@ -2,6 +2,8 @@
 using UnityEngine;
 using UnityEditor;
 using System.IO;
+using TMPro;
+using UnityEngine.UI;   
 
 /// <summary>
 /// Tools → Quality Clinic → Create New Area
@@ -10,6 +12,7 @@ using System.IO;
 /// </summary>
 public class CreateAreaWizard : EditorWindow
 {
+
     private string areaKey = "TEST";
     private string displayName = "Area Test";
 
@@ -94,5 +97,70 @@ public class CreateAreaWizard : EditorWindow
 
         Debug.Log($"[CreateAreaWizard] Creado: {path}");
     }
+
+    private void BuildAutoLabel(GameObject areaRoot, string areaKey, AreaConfigSO cfg)
+{
+    // 1) Crear raíz del Label
+    var labelGO = new GameObject("Label");
+    labelGO.transform.SetParent(areaRoot.transform, false);
+    labelGO.transform.localPosition = Vector3.zero;
+
+    // 2) Canvas WorldSpace para que se vea en TopDown (y el Manager lo enciende/apaga)
+    var canvas = labelGO.AddComponent<Canvas>();
+    canvas.renderMode = RenderMode.WorldSpace;
+    canvas.sortingOrder = 5000; // por encima de overlays
+    var gr = labelGO.AddComponent<GraphicRaycaster>(); gr.blockingObjects = GraphicRaycaster.BlockingObjects.None;
+
+    var rt = labelGO.GetComponent<RectTransform>();
+    rt.sizeDelta = new Vector2(1.5f, 1.0f);
+    rt.localScale = Vector3.one * 0.02f; // tamaño cómodo en tu escena
+
+    // 3) Crear los textos hijos (TMP)
+    // NameText
+    var nameGO = new GameObject("NameText", typeof(TextMeshProUGUI));
+    nameGO.transform.SetParent(labelGO.transform, false);
+    var nameRT = nameGO.GetComponent<RectTransform>();
+    nameRT.anchorMin = nameRT.anchorMax = new Vector2(0.5f, 0.65f);
+    nameRT.sizeDelta = new Vector2(1.4f, 0.4f);
+    var nameTMP = nameGO.GetComponent<TextMeshProUGUI>();
+    nameTMP.text = string.IsNullOrEmpty(cfg.displayName) ? areaKey : cfg.displayName.ToUpperInvariant();
+    nameTMP.fontSize = 36;
+    nameTMP.alignment = TextAlignmentOptions.Center;
+
+    // PercentText
+    var pctGO = new GameObject("PercentText", typeof(TextMeshProUGUI));
+    pctGO.transform.SetParent(labelGO.transform, false);
+    var pctRT = pctGO.GetComponent<RectTransform>();
+    pctRT.anchorMin = pctRT.anchorMax = new Vector2(0.5f, 0.25f);
+    pctRT.sizeDelta = new Vector2(1.4f, 0.4f);
+    var pctTMP = pctGO.GetComponent<TextMeshProUGUI>();
+    var pct = Mathf.Clamp(cfg.OverallResult, 0f, 100f);
+    pctTMP.text = $"{pct:F0}%";
+    pctTMP.fontSize = 44;
+    pctTMP.fontStyle = FontStyles.Bold;
+    pctTMP.alignment = TextAlignmentOptions.Center;
+
+    // 4) Componente de control
+    var label = labelGO.AddComponent<ManualAreaLabel>();
+    label.autoDetectAreaFromHierarchy = true;          // toma la key desde "Area_*"
+    label.onlyShowInStaticTopDown = true;              // visible solo en TopDown
+    label.whiteWithBlackOutlineInStatic = true;        // estilo legible en mapa
+    label.canvasSortingOrder = 5000;
+    label.nameText = nameTMP;
+    label.percentText = pctTMP;
+
+    // Fallbacks desde el SO (por si aún no existen datos en AreaManager)
+    label.GetType().GetField("fallbackDisplayName", 
+        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+        ?.SetValue(label, string.IsNullOrEmpty(cfg.displayName) ? areaKey : cfg.displayName);
+    label.GetType().GetField("fallbackOverall", 
+        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+        ?.SetValue(label, cfg.OverallResult <= 0 ? 81f : cfg.OverallResult);
+
+    // 5) Ajuste de altura y escala cómodos (coinciden con tus labels actuales)
+    label.labelHeightY = 0.25f;
+    label.canvasBaseScale = 1.0f;
+    label.mapModeScale = 1.2f;
+}
 }
 #endif

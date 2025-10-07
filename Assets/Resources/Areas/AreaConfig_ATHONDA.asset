@@ -10,14 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8878ca559b41cf044a1e1a3896889118, type: 3}
-  m_Name: AreaConfig_TEST4
+  m_Name: AreaConfig_ATHONDA
   m_EditorClassIdentifier: Assembly-CSharp::AreaConfigSO
-  areaKey: TEST4
-  displayName: Area Test4
-  delivery: 95
-  quality: 74.3
-  parts: 95
-  processManufacturing: 53.1
-  trainingDNA: 95
+  areaKey: ATHONDA
+  displayName: AT Honda
+  delivery: 100
+  quality: 83
+  parts: 100
+  processManufacturing: 100
+  trainingDNA: 100
   mtto: 95
-  overallResult: 84.566666
+  overallResult: 96.333336

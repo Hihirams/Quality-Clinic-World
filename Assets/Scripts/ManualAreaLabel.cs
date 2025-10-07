@@ -1,30 +1,59 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using TMPro;
 using static TMPro.ShaderUtilities;
 
 /// <summary>
-/// Controla etiquetas de texto manuales (nombre + porcentaje) que se muestran únicamente
-/// en la vista estática top-down del mapa 3D/2D.
+/// Controla etiquetas de texto manuales (nombre + porcentaje) que se muestran ï¿½nicamente
+/// en la vista estï¿½tica top-down del mapa 3D/2D.
 /// 
 /// Responsabilidades:
-/// - Auto-detectar el área asociada desde la jerarquía
+/// - Auto-detectar el ï¿½rea asociada desde la jerarquï¿½a
 /// - Sincronizar visibilidad con ManualLabelsManager y TopDownCameraController
 /// - Actualizar textos con datos de AreaManager
 /// - Aplicar estilos configurables (preset TMP, outline, colores Apple)
-/// - Mantener consistencia de posición y escala del Canvas WorldSpace
+/// - Mantener consistencia de posiciï¿½n y escala del Canvas WorldSpace
 /// 
 /// Dependencias:
 /// - ManualLabelsManager: registro centralizado
-/// - AreaManager: datos de porcentaje por área
-/// - TopDownCameraController: detección de modo de cámara
+/// - AreaManager: datos de porcentaje por ï¿½rea
+/// - TopDownCameraController: detecciï¿½n de modo de cï¿½mara
 /// - AppleTheme (opcional): colores consistentes
 /// </summary>
 public class ManualAreaLabel : MonoBehaviour
 {
+
+    [Header("Fallbacks (si no hay datos en AreaManager)")]
+[SerializeField] private string fallbackDisplayName = "";
+[SerializeField] private float fallbackOverall = 81f;
+
+// --- modifica UpdateTexts() para usar fallback ---
+// Reemplaza TODO el mÃ©todo GetAreaData() por este:
+private AreaManager.AreaData GetAreaData()
+{
+    // 1) Intenta con AreaManager (si existe y contiene el Ã¡rea)
+    var am = areaManager ?? FindFirstObjectByType<AreaManager>();
+    if (am != null)
+    {
+        string normalizedKey = NormalizeAreaKey(areaKey);
+        var d = am.GetAreaData(normalizedKey);
+        if (d != null) return d;
+    }
+
+    // 2) Fallback a lo configurado por el wizard (SO) si aÃºn no existe en AreaManager
+    float ov = Mathf.Clamp(fallbackOverall, 0f, 100f);
+    return new AreaManager.AreaData {
+        displayName  = string.IsNullOrEmpty(fallbackDisplayName) ? areaKey : fallbackDisplayName,
+        overallResult= ov,
+        statusColor  = AppleTheme.Status(ov),
+    };
+}
+
+
+
     #region Serialized Fields
 
     [Header("Estilo (opcional)")]
-    [Tooltip("Si está activo, NO se sobreescriben Outline/Underlay/Color en runtime.")]
+    [Tooltip("Si estï¿½ activo, NO se sobreescriben Outline/Underlay/Color en runtime.")]
     public bool respectInspectorTextSettings = true;
 
     [Tooltip("Preset Material de TMP para aplicar a ambos textos (opcional).")]
@@ -34,14 +63,14 @@ public class ManualAreaLabel : MonoBehaviour
     public bool applyPresetOnStart = true;
 
     [Header("Referencias de Textos")]
-    [Tooltip("TextMeshProUGUI del nombre del área")]
+    [Tooltip("TextMeshProUGUI del nombre del ï¿½rea")]
     public TextMeshProUGUI nameText;
 
     [Tooltip("TextMeshProUGUI del porcentaje de calidad")]
     public TextMeshProUGUI percentText;
 
-    [Header("Configuración")]
-    [Tooltip("Clave del área (ATHONDA, VCTL4, BUZZERL2, VBL1). Se auto-detecta si está vacío.")]
+    [Header("Configuraciï¿½n")]
+    [Tooltip("Clave del ï¿½rea (ATHONDA, VCTL4, BUZZERL2, VBL1). Se auto-detecta si estï¿½ vacï¿½o.")]
     public string areaKey = "ATHONDA";
 
     [Tooltip("Forzar nombre personalizado en lugar del de AreaManager")]
@@ -57,8 +86,8 @@ public class ManualAreaLabel : MonoBehaviour
     [Tooltip("Forzar texto negro (obsoleto si usas respectInspectorTextSettings)")]
     public bool keepTextBlack = false;
 
-    [Header("Estilo en Top-Down Estático")]
-    [Tooltip("Aplicar blanco con outline negro en vista estática")]
+    [Header("Estilo en Top-Down Estï¿½tico")]
+    [Tooltip("Aplicar blanco con outline negro en vista estï¿½tica")]
     public bool whiteWithBlackOutlineInStatic = true;
 
     [Range(0f, 1f)]
@@ -74,24 +103,24 @@ public class ManualAreaLabel : MonoBehaviour
     [Tooltip("Escala base del canvas")]
     public float canvasBaseScale = 1.0f;
 
-    [Tooltip("Escala específica para vista mapa")]
+    [Tooltip("Escala especï¿½fica para vista mapa")]
     public float mapModeScale = 1.2f;
 
     [Tooltip("Orden de sorting del canvas")]
     public int canvasSortingOrder = 5000;
 
-    [Header("?? CORRECCIÓN DE POSICIÓN")]
-    [Tooltip("Offset en X para ajustar posición final")]
+    [Header("?? CORRECCIï¿½N DE POSICIï¿½N")]
+    [Tooltip("Offset en X para ajustar posiciï¿½n final")]
     public float positionOffsetX = 0f;
 
-    [Tooltip("Offset en Z para ajustar posición final")]
+    [Tooltip("Offset en Z para ajustar posiciï¿½n final")]
     public float positionOffsetZ = 0f;
 
-    [Tooltip("Forzar recalculo de posición en cada frame")]
+    [Tooltip("Forzar recalculo de posiciï¿½n en cada frame")]
     public bool continuousPositionUpdate = true;
 
-    [Header("Autodetección")]
-    [Tooltip("Detectar área por jerarquía de padres (busca AREA_*)")]
+    [Header("Autodetecciï¿½n")]
+    [Tooltip("Detectar ï¿½rea por jerarquï¿½a de padres (busca AREA_*)")]
     public bool autoDetectAreaFromHierarchy = true;
 
     [Header("Debug")]
@@ -114,7 +143,7 @@ public class ManualAreaLabel : MonoBehaviour
     #region Unity Callbacks
 
     /// <summary>
-    /// Validación en Editor: guarda la posición original antes de Play Mode
+    /// Validaciï¿½n en Editor: guarda la posiciï¿½n original antes de Play Mode
     /// </summary>
     void OnValidate()
     {
@@ -125,13 +154,13 @@ public class ManualAreaLabel : MonoBehaviour
     }
 
     /// <summary>
-    /// Inicialización temprana:
-    /// - Auto-detecta areaKey desde jerarquía
-    /// - Guarda posición original del transform
+    /// Inicializaciï¿½n temprana:
+    /// - Auto-detecta areaKey desde jerarquï¿½a
+    /// - Guarda posiciï¿½n original del transform
     /// </summary>
     void Awake()
     {
-        // Auto-detección de área
+        // Auto-detecciï¿½n de ï¿½rea
         if (autoDetectAreaFromHierarchy)
         {
             string detected = DetectAreaKeyFromParents();
@@ -141,19 +170,22 @@ public class ManualAreaLabel : MonoBehaviour
             }
         }
 
-        // Guardar posición original para correcciones posteriores
+        // Guardar posiciï¿½n original para correcciones posteriores
         originalWorldPosition = transform.position;
 
         if (enableDebug)
         {
             QCLog.Info($"[ManualAreaLabel:{name}] Awake - areaKey={areaKey}, pos={originalWorldPosition}");
         }
+        var rt = GetComponentInChildren<Canvas>(true)?.transform as RectTransform;
+    if (rt != null && respectInspectorTextSettings)
+        canvasBaseScale = rt.localScale.x;
     }
 
     /// <summary>
-    /// Inicialización principal:
+    /// Inicializaciï¿½n principal:
     /// - Registra en ManualLabelsManager
-    /// - Obtiene referencias de sistemas (AreaManager, cámara)
+    /// - Obtiene referencias de sistemas (AreaManager, cï¿½mara)
     /// - Configura Canvas WorldSpace
     /// - Aplica preset TMP y colores iniciales
     /// - Establece visibilidad inicial (oculto)
@@ -173,7 +205,7 @@ public class ManualAreaLabel : MonoBehaviour
             topDownController = mainCamera.GetComponent<TopDownCameraController>();
         }
 
-        // Setup crítico del Canvas WorldSpace
+        // Setup crï¿½tico del Canvas WorldSpace
         SetupCanvasForConsistency();
 
         // Aplicar preset TMP opcional (una sola vez)
@@ -208,17 +240,17 @@ public class ManualAreaLabel : MonoBehaviour
 
     /// <summary>
     /// Loop principal:
-    /// - Asegura consistencia del Canvas (cámara asignada)
-    /// - Actualiza visibilidad según modo de cámara
+    /// - Asegura consistencia del Canvas (cï¿½mara asignada)
+    /// - Actualiza visibilidad segï¿½n modo de cï¿½mara
     /// - Sincroniza datos de porcentaje si cambian
-    /// - Actualiza posición continuamente si está configurado
+    /// - Actualiza posiciï¿½n continuamente si estï¿½ configurado
     /// </summary>
     void Update()
     {
-        // Asegurar consistencia de Canvas y cámara
+        // Asegurar consistencia de Canvas y cï¿½mara
         EnsureCanvasConsistency();
 
-        // Determinar si debe mostrarse según modo de cámara actual
+        // Determinar si debe mostrarse segï¿½n modo de cï¿½mara actual
         bool shouldShow = ShouldShowTexts();
         
         if (shouldShow != currentlyVisible)
@@ -238,7 +270,7 @@ public class ManualAreaLabel : MonoBehaviour
             }
         }
 
-        // Actualizar datos si el porcentaje cambió
+        // Actualizar datos si el porcentaje cambiï¿½
         if (currentlyVisible)
         {
             var data = GetAreaData();
@@ -249,7 +281,7 @@ public class ManualAreaLabel : MonoBehaviour
             }
         }
 
-        // Actualización continua de posición si está habilitada
+        // Actualizaciï¿½n continua de posiciï¿½n si estï¿½ habilitada
         if (continuousPositionUpdate && currentlyVisible)
         {
             UpdateCanvasPosition();
@@ -273,8 +305,8 @@ public class ManualAreaLabel : MonoBehaviour
     #region Public API
 
     /// <summary>
-    /// Fuerza actualización completa de textos y posición.
-    /// Llamado desde ManualLabelsManager cuando cambia el modo de cámara.
+    /// Fuerza actualizaciï¿½n completa de textos y posiciï¿½n.
+    /// Llamado desde ManualLabelsManager cuando cambia el modo de cï¿½mara.
     /// </summary>
     public void ForceRefresh()
     {
@@ -288,10 +320,10 @@ public class ManualAreaLabel : MonoBehaviour
     }
 
     /// <summary>
-    /// Establece visibilidad según el estado top-down.
-    /// Llamado desde ManualLabelsManager para sincronización global.
+    /// Establece visibilidad segï¿½n el estado top-down.
+    /// Llamado desde ManualLabelsManager para sincronizaciï¿½n global.
     /// </summary>
-    /// <param name="visible">Si el modo top-down está activo</param>
+    /// <param name="visible">Si el modo top-down estï¿½ activo</param>
     public void SetTopDownVisibility(bool visible)
     {
         if (enableDebug)
@@ -313,8 +345,8 @@ public class ManualAreaLabel : MonoBehaviour
     #region Internal Helpers - Canvas Setup
 
     /// <summary>
-    /// Configuración inicial del Canvas WorldSpace.
-    /// Asegura renderMode correcto, cámara asignada, posición y escala iniciales.
+    /// Configuraciï¿½n inicial del Canvas WorldSpace.
+    /// Asegura renderMode correcto, cï¿½mara asignada, posiciï¿½n y escala iniciales.
     /// </summary>
     private void SetupCanvasForConsistency()
     {
@@ -324,24 +356,25 @@ public class ManualAreaLabel : MonoBehaviour
         {
             if (enableDebug)
             {
-                QCLog.Error($"[ManualAreaLabel:{name}] No se encontró Canvas hijo!");
+                QCLog.Error($"[ManualAreaLabel:{name}] No se encontrï¿½ Canvas hijo!");
             }
             return;
         }
 
-        // Configuración básica WorldSpace
+        // Configuraciï¿½n bï¿½sica WorldSpace
         cachedCanvas.renderMode = RenderMode.WorldSpace;
         cachedCanvas.overrideSorting = true;
         cachedCanvas.sortingOrder = canvasSortingOrder;
 
-        // Asignar cámara inmediatamente
+        // Asignar cï¿½mara inmediatamente
         AssignCameraToCanvas();
 
-        // Posición inicial basada en originalWorldPosition
+        // Posiciï¿½n inicial basada en originalWorldPosition
         UpdateCanvasPosition();
 
         // Escala inicial
-        UpdateCanvasScale();
+        if (!respectInspectorTextSettings)
+    UpdateCanvasScale();
 
         if (enableDebug)
         {
@@ -351,13 +384,13 @@ public class ManualAreaLabel : MonoBehaviour
 
     /// <summary>
     /// Verifica y mantiene la consistencia del Canvas en runtime.
-    /// Re-asigna la cámara si se pierde la referencia.
+    /// Re-asigna la cï¿½mara si se pierde la referencia.
     /// </summary>
     private void EnsureCanvasConsistency()
     {
         if (!cachedCanvas) return;
 
-        // Verificar que la cámara siga asignada en WorldSpace
+        // Verificar que la cï¿½mara siga asignada en WorldSpace
         if (cachedCanvas.renderMode == RenderMode.WorldSpace)
         {
             if (cachedCanvas.worldCamera == null)
@@ -368,7 +401,7 @@ public class ManualAreaLabel : MonoBehaviour
     }
 
     /// <summary>
-    /// Asigna la cámara activa al Canvas WorldSpace.
+    /// Asigna la cï¿½mara activa al Canvas WorldSpace.
     /// Prioridad: Camera.main > FindFirstObjectByType<Camera>
     /// </summary>
     private void AssignCameraToCanvas()
@@ -388,27 +421,27 @@ public class ManualAreaLabel : MonoBehaviour
             
             if (enableDebug)
             {
-                QCLog.Info($"[ManualAreaLabel:{name}] Cámara asignada: {targetCamera.name}");
+                QCLog.Info($"[ManualAreaLabel:{name}] Cï¿½mara asignada: {targetCamera.name}");
             }
         }
         else
         {
             if (enableDebug)
             {
-                QCLog.Warn($"[ManualAreaLabel:{name}] No se encontró cámara disponible!");
+                QCLog.Warn($"[ManualAreaLabel:{name}] No se encontrï¿½ cï¿½mara disponible!");
             }
         }
     }
 
     /// <summary>
-    /// Actualiza la posición mundial del label aplicando offsets configurados.
-    /// Resetea la posición local del Canvas a (0,0,0).
+    /// Actualiza la posiciï¿½n mundial del label aplicando offsets configurados.
+    /// Resetea la posiciï¿½n local del Canvas a (0,0,0).
     /// </summary>
     private void UpdateCanvasPosition()
     {
         if (!cachedCanvas) return;
 
-        // Calcular posición final con offsets
+        // Calcular posiciï¿½n final con offsets
         Vector3 finalPosition = originalWorldPosition;
         finalPosition.x += positionOffsetX;
         finalPosition.y = labelHeightY;
@@ -421,22 +454,22 @@ public class ManualAreaLabel : MonoBehaviour
     }
 
     /// <summary>
-    /// Actualiza la escala del Canvas según el modo actual.
-    /// Aplica mapModeScale cuando está visible en modo mapa.
+    /// Actualiza la escala del Canvas segï¿½n el modo actual.
+    /// Aplica mapModeScale cuando estï¿½ visible en modo mapa.
     /// </summary>
-    private void UpdateCanvasScale()
-    {
-        if (!cachedCanvas) return;
+private void UpdateCanvasScale()
+{
+    if (respectInspectorTextSettings) return; // <- NO cambiar escala si quiero respetar el inspector
+    if (!cachedCanvas) return;
 
-        bool isInMapMode = ShouldShowTexts() && currentlyVisible;
-        float targetScale = isInMapMode ? (canvasBaseScale * mapModeScale) : canvasBaseScale;
+    bool isInMapMode = ShouldShowTexts() && currentlyVisible;
+    float targetScale = isInMapMode ? (canvasBaseScale * mapModeScale) : canvasBaseScale;
 
-        var rt = cachedCanvas.transform as RectTransform;
-        if (rt != null)
-        {
-            rt.localScale = Vector3.one * targetScale;
-        }
-    }
+    var rt = cachedCanvas.transform as RectTransform;
+    if (rt != null)
+        rt.localScale = Vector3.one * targetScale;
+}
+
 
     /// <summary>
     /// Centra los textos hijos dentro del Canvas.
@@ -469,11 +502,11 @@ public class ManualAreaLabel : MonoBehaviour
 
     /// <summary>
     /// Aplica el estilo de outline blanco/negro si corresponde.
-    /// Solo actúa si NO se respeta el Inspector y NO hay preset TMP.
+    /// Solo actï¿½a si NO se respeta el Inspector y NO hay preset TMP.
     /// </summary>
     private void ApplyStaticStyleIfNeeded()
     {
-        // Respetar configuración manual o preset
+        // Respetar configuraciï¿½n manual o preset
         if (respectInspectorTextSettings || sharedTMPPreset != null)
         {
             return;
@@ -515,13 +548,13 @@ public class ManualAreaLabel : MonoBehaviour
     #region Internal Helpers - Visibility & Text Updates
 
     /// <summary>
-    /// Determina si los textos deben mostrarse según el modo de cámara actual.
-    /// Evalúa: ManualLabelsManager, TopDownCameraController y modo estático.
+    /// Determina si los textos deben mostrarse segï¿½n el modo de cï¿½mara actual.
+    /// Evalï¿½a: ManualLabelsManager, TopDownCameraController y modo estï¿½tico.
     /// </summary>
     /// <returns>True si debe mostrarse en el modo actual</returns>
     private bool ShouldShowTexts()
     {
-        // Si no está restringido a top-down, siempre visible
+        // Si no estï¿½ restringido a top-down, siempre visible
         if (!onlyShowInStaticTopDown)
         {
             return true;
@@ -531,7 +564,7 @@ public class ManualAreaLabel : MonoBehaviour
         var mgr = FindFirstObjectByType<ManualLabelsManager>();
         bool managerSaysTopDown = (mgr != null) && mgr.GetCurrentTopDownMode();
 
-        // Verificar controlador de cámara top-down
+        // Verificar controlador de cï¿½mara top-down
         bool topDownOk = false;
         bool staticOk = false;
 
@@ -541,7 +574,7 @@ public class ManualAreaLabel : MonoBehaviour
             staticOk = topDownController.IsUsingFixedStaticView();
         }
 
-        // Mostrar si el manager lo indica O si ambos modos están activos
+        // Mostrar si el manager lo indica O si ambos modos estï¿½n activos
         return managerSaysTopDown || (topDownOk && staticOk);
     }
 
@@ -585,8 +618,8 @@ public class ManualAreaLabel : MonoBehaviour
     }
 
     /// <summary>
-    /// Actualiza el texto del nombre del área.
-    /// Usa customNameText si está configurado, sino obtiene de AreaManager.
+    /// Actualiza el texto del nombre del ï¿½rea.
+    /// Usa customNameText si estï¿½ configurado, sino obtiene de AreaManager.
     /// </summary>
     private void UpdateName()
     {
@@ -605,7 +638,7 @@ public class ManualAreaLabel : MonoBehaviour
             }
         }
 
-        // Aplicar color negro si está configurado y NO en modo estático
+        // Aplicar color negro si estï¿½ configurado y NO en modo estï¿½tico
         if (keepTextBlack && !ShouldShowTexts())
         {
             nameText.color = Color.black;
@@ -614,7 +647,7 @@ public class ManualAreaLabel : MonoBehaviour
 
     /// <summary>
     /// Actualiza el texto del porcentaje de calidad.
-    /// Formatea como entero con símbolo %.
+    /// Formatea como entero con sï¿½mbolo %.
     /// </summary>
     private void UpdatePercentage()
     {
@@ -626,7 +659,7 @@ public class ManualAreaLabel : MonoBehaviour
         {
             percentText.text = $"{data.overallResult:F0}%";
             
-            // Aplicar color negro si está configurado y NO en modo estático
+            // Aplicar color negro si estï¿½ configurado y NO en modo estï¿½tico
             if (keepTextBlack && !ShouldShowTexts())
             {
                 percentText.color = Color.black;
@@ -646,22 +679,9 @@ public class ManualAreaLabel : MonoBehaviour
     #endregion
 
     #region Internal Helpers - Area Data & Detection
-
     /// <summary>
-    /// Obtiene los datos del área desde AreaManager.
-    /// </summary>
-    /// <returns>AreaData correspondiente o null si no existe</returns>
-    private AreaManager.AreaData GetAreaData()
-    {
-        if (!areaManager) return null;
-
-        string normalizedKey = NormalizeAreaKey(areaKey);
-        return areaManager.GetAreaData(normalizedKey);
-    }
-
-    /// <summary>
-    /// Normaliza la clave del área eliminando prefijos y espacios.
-    /// Mapea variantes comunes a claves estándar (ATHONDA, VCTL4, BUZZERL2, VBL1).
+    /// Normaliza la clave del ï¿½rea eliminando prefijos y espacios.
+    /// Mapea variantes comunes a claves estï¿½ndar (ATHONDA, VCTL4, BUZZERL2, VBL1).
     /// </summary>
     /// <param name="key">Clave cruda</param>
     /// <returns>Clave normalizada</returns>
@@ -680,7 +700,7 @@ public class ManualAreaLabel : MonoBehaviour
     }
 
     /// <summary>
-    /// Detecta automáticamente la clave del área buscando en la jerarquía de padres.
+    /// Detecta automï¿½ticamente la clave del ï¿½rea buscando en la jerarquï¿½a de padres.
     /// Busca GameObjects con nombres que empiecen con "AREA_".
     /// </summary>
     /// <returns>Clave detectada o null si no se encuentra</returns>
@@ -694,7 +714,7 @@ public class ManualAreaLabel : MonoBehaviour
             
             if (n.StartsWith("AREA_"))
             {
-                // Extraer la parte después de "AREA_"
+                // Extraer la parte despuï¿½s de "AREA_"
                 string k = n.Substring(5);
                 k = k.Replace(" ", "").Replace("_", "");
                 
@@ -716,8 +736,8 @@ public class ManualAreaLabel : MonoBehaviour
 
     #region Debug
 
-    // Métodos de debug adicionales pueden añadirse aquí si es necesario
-    // Por ahora, los logs están distribuidos en los métodos principales
+    // Mï¿½todos de debug adicionales pueden aï¿½adirse aquï¿½ si es necesario
+    // Por ahora, los logs estï¿½n distribuidos en los mï¿½todos principales
 
     #endregion
 }
