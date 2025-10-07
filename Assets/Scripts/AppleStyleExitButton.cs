@@ -19,6 +19,7 @@ namespace QualityClinic.UI
         #region Serialized Fields
         // (No exponer nada extra al Inspector para no introducir dependencias ni referencias)
         #endregion
+        
 
         #region Private State
         private static AppleStyleExitButton _instance;
