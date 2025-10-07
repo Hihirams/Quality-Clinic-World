@@ -439,7 +439,7 @@ public class AreaManager : MonoBehaviour
             if (areaDataDict.ContainsKey(areaKey))
             {
                 var data = areaDataDict[areaKey];
-                card.areaName = data.displayName;
+                card.areaName = "AREA_" + data.areaName;
             }
             else
             {
@@ -810,45 +810,53 @@ public class AreaManager : MonoBehaviour
         QCLog.Info($"[PreciseColliders] Inicializados {preciseColliders.Count} colliders con dimensiones reales");
     }
 
-public void AddArea(GameObject areaObj, AreaData data)
-{
-    if (areaObj == null || data == null) return;
-
-    // 1) Listado y datos
-    if (!areaObjects.Contains(areaObj))
-        areaObjects.Add(areaObj);
-
-    string key = GetAreaKey(areaObj.name);  // tu helper que normaliza AREA_*
-    areaDataDict[key] = data;
-
-    // 2) Posiciones/bounds (para cámara y click)
-    RegisterRealAreaPositions();            // vuelve a calcular centers/bounds
-    SetupAreaCollider(areaObj);             // asegura collider si no tenía
-
-    // 3) Overlays
-    if (overlayPainter == null)
-        overlayPainter = FindFirstObjectByType<AreaOverlayPainter>();
-    overlayPainter?.RegisterArea(areaObj);
-
-    // 4) Top-Down (opcional pero recomendable si cambia el tamaño total del mapa)
-    if (topDownController != null && enableTopDownView)
+    public void AddArea(GameObject areaObj, AreaData data)
     {
-        // Recalcular framing con las nuevas bounds
-        Vector3 plantCenter = CalculatePlantCenter();
-        Vector2 plantSize = CalculatePlantSize();
-        var settings = new TopDownCameraController.TopDownSettings
-        {
-            cameraHeight = Mathf.Max(150f, Mathf.Max(plantSize.x, plantSize.y) * 1.1f),
-            cameraAngle  = 22f,
-            plantCenter  = plantCenter,
-            viewportWidth  = plantSize.x * fitPadding,
-            viewportDepth  = plantSize.y * fitPadding
-        };
-        topDownController.ApplySettings(settings);
-    }
+        if (areaObj == null || data == null) return;
 
-    // 5) Labels manuales (si los usas)
-    NotifyManualLabelsUpdate();
+        // 1) Listado y datos
+        if (!areaObjects.Contains(areaObj))
+            areaObjects.Add(areaObj);
+
+        string key = GetAreaKey(areaObj.name);  // tu helper que normaliza AREA_*
+        areaDataDict[key] = data;
+
+        // 2) Posiciones/bounds (para cámara y click)
+        RegisterRealAreaPositions();            // vuelve a calcular centers/bounds
+        SetupAreaCollider(areaObj);             // asegura collider si no tenía
+
+        // 3) Overlays
+        if (overlayPainter == null)
+            overlayPainter = FindFirstObjectByType<AreaOverlayPainter>();
+        overlayPainter?.RegisterArea(areaObj);
+
+        // 4) Top-Down (opcional pero recomendable si cambia el tamaño total del mapa)
+        if (topDownController != null && enableTopDownView)
+        {
+            // Recalcular framing con las nuevas bounds
+            Vector3 plantCenter = CalculatePlantCenter();
+            Vector2 plantSize = CalculatePlantSize();
+            var settings = new TopDownCameraController.TopDownSettings
+            {
+                cameraHeight = Mathf.Max(150f, Mathf.Max(plantSize.x, plantSize.y) * 1.1f),
+                cameraAngle = 22f,
+                plantCenter = plantCenter,
+                viewportWidth = plantSize.x * fitPadding,
+                viewportDepth = plantSize.y * fitPadding
+            };
+            topDownController.ApplySettings(settings);
+        }
+
+        // 5) Labels manuales (si los usas)
+        NotifyManualLabelsUpdate();
+    var card = areaObj.GetComponentInChildren<AreaCard>(true);
+if (card != null)
+{
+    card.areaName = "AREA_" + data.areaName; // asegura key consistente
+    card.areaData = data;
+    // si expusieras un método público tipo card.RefreshVisuals() lo llamas aquí
+}
+
 }
 
 

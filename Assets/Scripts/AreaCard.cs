@@ -2,6 +2,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using AreaData = AreaManager.AreaData;
 
 public class AreaCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler
 {
@@ -65,17 +66,44 @@ public class AreaCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     private static int sCachedRadius;
 
     void Start()
+{
+    _playerCamera = Camera.main ?? FindFirstObjectByType<Camera>();
+
+    InitializeAreaData();     // pinta algo (puede ser fallback si el manager aún no cargó)
+    CreateFloatingCard();
+    SetupAreaCollider();
+    CreateConnection();
+
+    _originalScale = _cardPanel.transform.localScale;
+    _originalPosition = _cardPanel.transform.position;
+
+    // <-- NUEVO: reintento tras 1-2 frames y refresco de UI
+    StartCoroutine(BindFromManagerAndRefresh());
+}
+
+IEnumerator BindFromManagerAndRefresh()
+{
+    // espera 2 frames para dar tiempo a AreaManager.Start() e InitializeAreaData()
+    yield return null;
+    yield return null;
+
+    var manager = FindFirstObjectByType<AreaManager>();
+    if (manager == null) yield break;
+
+    string raw = string.IsNullOrEmpty(areaName) ? gameObject.name : areaName;
+    string key = NormalizeKey(raw);
+
+    var data = manager.GetAreaData(key);
+    if (data != null)
     {
-        _playerCamera = Camera.main ?? FindFirstObjectByType<Camera>();
-
-        InitializeAreaData();
-        CreateFloatingCard();
-        SetupAreaCollider();
-        CreateConnection();
-
-        _originalScale = _cardPanel.transform.localScale;
-        _originalPosition = _cardPanel.transform.position;
+        areaData = data;
+        // refrescar UI ya creada
+        if (_areaNameText != null)      _areaNameText.text = areaData.displayName.ToUpper();
+        if (_overallResultText != null) _overallResultText.text = $"{areaData.overallResult:F0}%";
+        if (_backgroundImage != null)   _backgroundImage.color = GetAreaColor(areaData.overallResult);
     }
+}
+
 
     /// <summary>Permite mostrar/ocultar la tarjeta completa desde otros scripts.</summary>
     public void SetCardActive(bool active)
@@ -87,32 +115,65 @@ public class AreaCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     // ------------------- Datos demo -------------------
     void InitializeAreaData()
     {
-        switch ((areaName ?? "").ToUpper())
+        // 1) Intentar datos reales del AreaManager (via AreaConfigSO/Bootstrapper)
+        var manager = FindFirstObjectByType<AreaManager>();
+        if (manager != null)
+        {
+            string raw = string.IsNullOrEmpty(areaName) ? gameObject.name : areaName;
+            string key = NormalizeKey(raw);
+
+            var data = manager.GetAreaData(key);   // AreaManager.AreaData
+            if (data != null)
+            {
+                areaData = data;                   // PRIORIDAD 1 (SO)
+                return;
+            }
+        }
+
+        // 2) Fallback: tus valores hardcodeados (PRIORIDAD 2)
+        string upper = (string.IsNullOrEmpty(areaName) ? gameObject.name : areaName).ToUpperInvariant();
+        switch (upper)
         {
             case "AT HONDA":
             case "ATHONDA":
             case "AREA_ATHONDA":
-                areaData = new AreaData { areaName = "AT HONDA", overallResult = 95f };
+                areaData = new AreaData { areaName = "ATHONDA", displayName = "AT HONDA", overallResult = 95f };
                 break;
+
             case "VCT L4":
             case "VCTL4":
             case "AREA_VCTL4":
-                areaData = new AreaData { areaName = "VCT L4", overallResult = 92f };
+                areaData = new AreaData { areaName = "VCTL4", displayName = "VCT L4", overallResult = 92f };
                 break;
+
             case "BUZZER L2":
             case "BUZZERL2":
             case "AREA_BUZZERL2":
-                areaData = new AreaData { areaName = "BUZZER L2", overallResult = 73f };
+                areaData = new AreaData { areaName = "BUZZERL2", displayName = "BUZZER L2", overallResult = 73f };
                 break;
+
             case "VB L1":
             case "VBL1":
             case "AREA_VBL1":
-                areaData = new AreaData { areaName = "VB L1", overallResult = 49f };
+                areaData = new AreaData { areaName = "VBL1", displayName = "VB L1", overallResult = 49f };
                 break;
+
             default:
-                areaData = new AreaData { areaName = string.IsNullOrEmpty(areaName) ? "ÁREA" : areaName, overallResult = 81f };
+                string n = string.IsNullOrEmpty(areaName) ? gameObject.name : areaName;
+                areaData = new AreaData { areaName = n, displayName = n, overallResult = 81f };
                 break;
         }
+    }
+
+    // Helper para normalizar claves (ATHONDA, VCTL4, etc.)
+    string NormalizeKey(string s)
+
+    {
+        string u = (s ?? "").ToUpperInvariant().Trim();
+        if (u.StartsWith("AREA_")) u = u.Substring(5);
+        u = u.Replace("_", "").Replace(" ", "");
+        return u;
+
     }
 
     // ------------------- Tarjeta -------------------
@@ -525,9 +586,3 @@ public class AreaCard : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     }
 }
 
-// Estructura simple de datos de área
-public class AreaData
-{
-    public string areaName;
-    public float overallResult;
-}

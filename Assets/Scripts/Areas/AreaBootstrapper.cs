@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using AreaData = AreaManager.AreaData;
 #if TMP_PRESENT || TEXTMESHPRO_PRESENT
 using TMPro;
 #endif
@@ -217,10 +218,13 @@ if (mgr != null && config != null)
         }
 
         // Asignar info mínima a la card
-        card.areaName = "AREA_" + config.areaKey; // la card usa este nombre textual
+        card.areaName = "AREA_" + config.areaKey;    // OK
         if (card.areaData == null) card.areaData = new AreaData();
-        card.areaData.areaName = config.displayName;
+        // antes ponías el displayName como areaName; mejor separarlos:
+        card.areaData.areaName    = config.areaKey;       // <— clave real
+        card.areaData.displayName = config.displayName;   // <— nombre bonito
         card.areaData.overallResult = config.OverallResult;
+
 
         // Activar la card (si tu script tiene API pública para ello)
         card.SetCardActive(true);
