@@ -222,9 +222,10 @@ MonoBehaviour:
   regionName: "Am\xE9rica del Norte"
   regionType: 0
   fontSize: 3
-  childRegions: []
+  childRegions:
+  - {fileID: 883618891}
   visualLayerToShow: {fileID: 0}
-  sceneToLoad: 
+  sceneToLoad: 10_Plant_OP2
   labelText: {fileID: 244748497}
   cardBackground: {fileID: 1281323852}
   cardColor: {r: 1, g: 1, b: 1, a: 0.9}
@@ -462,7 +463,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 144463788}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0.26429388, z: 0, w: 0.9644422}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -470,7 +471,7 @@ Transform:
   - {fileID: 1132151640}
   - {fileID: 8516152}
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 30.65, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &144463790
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -483,7 +484,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9a795f4536ff4404290d845c3a642197, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlanetSetup
-  worldTexture: {fileID: 2800000, guid: b9033274691237044bba96d506c7d727, type: 3}
+  worldTexture: {fileID: 2800000, guid: 9b95043c44120ed498925dd2badcd414, type: 3}
   planetColor: {r: 0.21960786, g: 0.21960786, b: 0.21960786, a: 1}
 --- !u!135 &144463791
 SphereCollider:
@@ -531,7 +532,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 86886bba56dc39d4fb630266f54ba157, type: 2}
+  - {fileID: 2100000, guid: 14afef1632ab94644be35cabb993fa7d, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -2242,15 +2243,15 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 883618888}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: -0.7071068, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: -0.32, y: -1.39, z: 0.97}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -1.23, y: -1.88, z: 0.33}
   m_LocalScale: {x: 0.2, y: 0.2, z: 0.2}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 830359801}
   - {fileID: 1018349314}
   m_Father: {fileID: 1938738165}
-  m_LocalEulerAnglesHint: {x: 0, y: -90, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &883618890
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3163,6 +3164,141 @@ Material:
     - _Color: {r: 1, g: 1, b: 1, a: 0.9}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
+--- !u!1 &1349758470
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1349758472}
+  - component: {fileID: 1349758471}
+  m_Layer: 0
+  m_Name: DebugHelper
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1349758471
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1349758470}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1cb98570e76ae5143b5826d98e452fdb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DebugHelper
+  maskToCheck: {fileID: 2800000, guid: de1b1e176192ab844a9275e86a5b8024, type: 3}
+  showMaskOnPlanet: 1
+  planet: {fileID: 144463788}
+  visualizeClicks: 1
+  clickMarkerPrefab: {fileID: 0}
+  markerDuration: 2
+  analyzeOnStart: 0
+--- !u!4 &1349758472
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1349758470}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0.15, z: -0.58727}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1366819907
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1366819909}
+  - component: {fileID: 1366819908}
+  m_Layer: 0
+  m_Name: MultiLevelSystem
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1366819908
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1366819907}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 06878cedc6a51b145b11f935fc5254dd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MultiLevelPlanetSystem
+  planet: {fileID: 144463788}
+  mainCamera: {fileID: 126033186}
+  continentsBackground: {fileID: 2800000, guid: 9b95043c44120ed498925dd2badcd414, type: 3}
+  continentsMask: {fileID: 2800000, guid: de1b1e176192ab844a9275e86a5b8024, type: 3}
+  continentTexturesList:
+  - continentName: "Norte \xC1merica"
+    maskColor: {r: 0.73, g: 0.71, b: 0.03, a: 0}
+    countriesBackground: {fileID: 0}
+    countriesMask: {fileID: 0}
+  - continentName: "Sur Am\xE9rica"
+    maskColor: {r: 1, g: 0, b: 1, a: 0}
+    countriesBackground: {fileID: 0}
+    countriesMask: {fileID: 0}
+  - continentName: Asia
+    maskColor: {r: 0.14, g: 0.34, b: 0.99, a: 0}
+    countriesBackground: {fileID: 0}
+    countriesMask: {fileID: 0}
+  - continentName: Europa
+    maskColor: {r: 0, g: 0.8, b: 0.02, a: 0}
+    countriesBackground: {fileID: 0}
+    countriesMask: {fileID: 0}
+  - continentName: "\xC1frica "
+    maskColor: {r: 1, g: 0, b: 0, a: 0}
+    countriesBackground: {fileID: 0}
+    countriesMask: {fileID: 0}
+  - continentName: "Ocean\xEDa"
+    maskColor: {r: 0, g: 0.78, b: 0.78, a: 0}
+    countriesBackground: {fileID: 0}
+    countriesMask: {fileID: 0}
+  countryTexturesList: []
+  stateTexturesList: []
+  countryZoomDistance: 7
+  stateZoomDistance: 5
+  plantZoomDistance: 3
+  rotationDuration: 0.8
+  planetRotationSpeed: 10
+  autoRotate: 1
+  colorTolerance: 0.4
+  showDebugLogs: 1
+  plantMappings: []
+--- !u!4 &1366819909
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1366819907}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0.15, z: -0.58727}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1386363415
 GameObject:
   m_ObjectHideFlags: 0
@@ -4568,7 +4704,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1938738165
 Transform:
   m_ObjectHideFlags: 0
@@ -4857,3 +4993,5 @@ SceneRoots:
   - {fileID: 1938738165}
   - {fileID: 1807412188}
   - {fileID: 1239781252}
+  - {fileID: 1366819909}
+  - {fileID: 1349758472}
