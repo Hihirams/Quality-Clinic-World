@@ -1,9 +1,10 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using System.Collections;
-using Word_V2;
 
-public class PlanetController : MonoBehaviour
+namespace Word_V2
+{
+    public class PlanetController : MonoBehaviour
 {
     [Header("References")]
     public Material planetMaterial;
@@ -22,51 +23,93 @@ public class PlanetController : MonoBehaviour
     [Header("Data")]
     public InteractiveData interactiveData;
     
-    private int currentLevel = 0; // 0=World, 1=Continent, 2=Country, 3=State
+    [Header("Debug")]
+    public bool showDebug = true;
+    
+    private int currentLevel = 0;
     private Texture2D currentMaskTexture;
     private bool isTransitioning = false;
     private int selectedRegionIndex = -1;
+    private MeshCollider meshCollider;
 
     void Start()
     {
         if (mainCamera == null)
             mainCamera = Camera.main;
         
-        // Cargar el primer nivel (mundo)
+        // Verificar o añadir MeshCollider
+        meshCollider = GetComponent<MeshCollider>();
+        if (meshCollider == null)
+        {
+            meshCollider = gameObject.AddComponent<MeshCollider>();
+            meshCollider.convex = true;
+            Debug.Log("✅ MeshCollider añadido automáticamente");
+        }
+        
+        if (interactiveData == null)
+        {
+            Debug.LogError("⚠️ FALTA ASIGNAR InteractiveData!");
+            return;
+        }
+        
         LoadLevel(0);
     }
 
     void Update()
     {
-        // Rotación idle del planeta
         if (!isTransitioning)
         {
             transform.Rotate(Vector3.up, idleRotationSpeed * Time.deltaTime, Space.World);
         }
         
-        // Detectar click
         if (Input.GetMouseButtonDown(0) && !isTransitioning)
         {
+            Debug.Log("🖱️ Click detectado!");
             HandleClick();
         }
     }
 
     void LoadLevel(int levelIndex)
     {
-        if (levelIndex >= interactiveData.levels.Length)
+        if (interactiveData == null || levelIndex >= interactiveData.levels.Length)
         {
-            Debug.LogError("Nivel fuera de rango!");
+            Debug.LogError($"❌ Error: Nivel {levelIndex} fuera de rango!");
             return;
         }
         
         currentLevel = levelIndex;
         LevelData level = interactiveData.levels[levelIndex];
         
-        // Cargar texturas
+        if (level.backgroundTexture == null)
+        {
+            Debug.LogError($"❌ Background Texture NULL en nivel {levelIndex}");
+            return;
+        }
+        
+        if (level.maskTexture == null)
+        {
+            Debug.LogError($"❌ Mask Texture NULL en nivel {levelIndex}");
+            return;
+        }
+        
+        // Verificar que la textura tenga Read/Write habilitado
+        try
+        {
+            Color testPixel = level.maskTexture.GetPixel(0, 0);
+            Debug.Log("✅ Mask Texture tiene Read/Write habilitado");
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"❌ ERROR: La textura {level.maskTexture.name} NO tiene Read/Write habilitado! {e.Message}");
+            return;
+        }
+        
         planetMaterial.mainTexture = level.backgroundTexture;
         currentMaskTexture = level.maskTexture;
         
-        Debug.Log($"Nivel cargado: {level.levelName}");
+        Debug.Log($"✅ Nivel cargado: {level.levelName}");
+        Debug.Log($"   Background: {level.backgroundTexture.name}");
+        Debug.Log($"   Mask: {level.maskTexture.name} ({level.maskTexture.width}x{level.maskTexture.height})");
     }
 
     void HandleClick()
@@ -74,21 +117,55 @@ public class PlanetController : MonoBehaviour
         Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
         RaycastHit hit;
         
+        Debug.Log("🔍 Lanzando Raycast...");
+        
         if (Physics.Raycast(ray, out hit))
         {
+            Debug.Log($"✅ Raycast golpeó: {hit.collider.gameObject.name}");
+            
             if (hit.collider.gameObject == gameObject)
             {
-                // Obtener coordenadas UV
-                Vector2 uv = hit.textureCoord;
+                Debug.Log("✅ Click en el planeta!");
                 
-                // Convertir UV a coordenadas de pixel
+                if (currentMaskTexture == null)
+                {
+                    Debug.LogError("❌ currentMaskTexture es NULL!");
+                    return;
+                }
+                
+                Vector2 uv = hit.textureCoord;
+                Debug.Log($"📍 UV RAW: {uv}");
+                
+                // Verificar si UV es válido
+                if (uv.x == 0 && uv.y == 0)
+                {
+                    Debug.LogWarning("⚠️ UV es (0,0) - Problema con el mesh o collider!");
+                    Debug.LogWarning("💡 Intenta usar Mesh Collider en lugar de Sphere Collider");
+                    
+                    // Intentar calcular UV desde el punto de hit
+                    Vector3 localPoint = transform.InverseTransformPoint(hit.point);
+                    float u = 0.5f + Mathf.Atan2(localPoint.z, localPoint.x) / (2f * Mathf.PI);
+                    float v = 0.5f - Mathf.Asin(localPoint.y) / Mathf.PI;
+                    uv = new Vector2(u, v);
+                    Debug.Log($"📍 UV CALCULADO: {uv}");
+                }
+                
+                // Asegurar que UV esté en rango [0,1]
+                uv.x = Mathf.Clamp01(uv.x);
+                uv.y = Mathf.Clamp01(uv.y);
+                
                 int x = Mathf.FloorToInt(uv.x * currentMaskTexture.width);
                 int y = Mathf.FloorToInt(uv.y * currentMaskTexture.height);
                 
-                // Obtener color del mask
-                Color clickedColor = currentMaskTexture.GetPixel(x, y);
+                // Asegurar que estén dentro de los límites
+                x = Mathf.Clamp(x, 0, currentMaskTexture.width - 1);
+                y = Mathf.Clamp(y, 0, currentMaskTexture.height - 1);
                 
-                // Buscar región
+                Debug.Log($"📍 Pixel: ({x}, {y}) en textura {currentMaskTexture.width}x{currentMaskTexture.height}");
+                
+                Color clickedColor = currentMaskTexture.GetPixel(x, y);
+                Debug.Log($"🎨 Color clickeado: R={clickedColor.r:F3} G={clickedColor.g:F3} B={clickedColor.b:F3} A={clickedColor.a:F3}");
+                
                 int regionIndex = FindRegionByColor(clickedColor);
                 
                 if (regionIndex >= 0)
@@ -97,12 +174,19 @@ public class PlanetController : MonoBehaviour
                     LevelData level = interactiveData.levels[currentLevel];
                     RegionData region = level.regions[regionIndex];
                     
-                    Debug.Log($"Continente/Región: {region.regionName} clickeado");
+                    Debug.Log($"🌍 Continente/Región: {region.regionName} clickeado");
                     
-                    // Iniciar transición
                     StartCoroutine(TransitionToRegion(region));
                 }
+                else
+                {
+                    Debug.LogWarning("⚠️ No se encontró región con ese color");
+                }
             }
+        }
+        else
+        {
+            Debug.LogWarning("❌ Raycast no golpeó nada");
         }
     }
 
@@ -110,18 +194,28 @@ public class PlanetController : MonoBehaviour
     {
         LevelData level = interactiveData.levels[currentLevel];
         
+        if (level.regions == null || level.regions.Length == 0)
+        {
+            Debug.LogError("❌ No hay regiones configuradas!");
+            return -1;
+        }
+        
+        Debug.Log($"🔍 Buscando entre {level.regions.Length} regiones...");
+        
         for (int i = 0; i < level.regions.Length; i++)
         {
             Color regionColor = level.regions[i].maskColor;
             
-            // Comparar colores con tolerancia
             float distance = Vector3.Distance(
                 new Vector3(clickedColor.r, clickedColor.g, clickedColor.b),
                 new Vector3(regionColor.r, regionColor.g, regionColor.b)
             );
             
-            if (distance < 0.1f) // Tolerancia de color
+            Debug.Log($"   Región [{i}] {level.regions[i].regionName}: Color R={regionColor.r:F3} G={regionColor.g:F3} B={regionColor.b:F3}, Distancia={distance:F3}");
+            
+            if (distance < 0.2f) // Aumenté la tolerancia
             {
+                Debug.Log($"✅ ¡Match encontrado! Región: {level.regions[i].regionName}");
                 return i;
             }
         }
@@ -132,8 +226,8 @@ public class PlanetController : MonoBehaviour
     IEnumerator TransitionToRegion(RegionData region)
     {
         isTransitioning = true;
+        Debug.Log($"🔄 Iniciando transición a: {region.regionName}");
         
-        // Rotación de transición
         float elapsed = 0f;
         float rotationAmount = 360f;
         
@@ -145,7 +239,6 @@ public class PlanetController : MonoBehaviour
             yield return null;
         }
         
-        // Zoom in
         Vector3 startPos = mainCamera.transform.position;
         Vector3 endPos = new Vector3(startPos.x, startPos.y, -zoomedDistance);
         elapsed = 0f;
@@ -158,37 +251,34 @@ public class PlanetController : MonoBehaviour
             yield return null;
         }
         
-        // Verificar si es el último nivel (estados)
-        if (currentLevel == 3) // Nivel de estados
+        if (currentLevel == 3)
         {
-            // Cambiar a la escena específica del estado
             if (!string.IsNullOrEmpty(region.nextSceneName))
             {
-                Debug.Log($"Cargando escena: {region.nextSceneName}");
+                Debug.Log($"🎬 Cargando escena: {region.nextSceneName}");
                 SceneManager.LoadScene(region.nextSceneName);
             }
             else
             {
-                Debug.LogWarning("No se especificó escena para este estado");
+                Debug.LogWarning("⚠️ No se especificó escena para este estado");
             }
         }
         else
         {
-            // Cargar siguiente nivel
             currentLevel++;
             
             if (currentLevel < interactiveData.levels.Length)
             {
-                // Actualizar texturas al siguiente nivel
                 planetMaterial.mainTexture = region.backgroundTexture;
                 currentMaskTexture = region.maskTexture;
                 
-                // Actualizar el nivel actual en interactiveData
                 interactiveData.levels[currentLevel].backgroundTexture = region.backgroundTexture;
                 interactiveData.levels[currentLevel].maskTexture = region.maskTexture;
+                
+                Debug.Log($"✅ Nivel {currentLevel} cargado");
             }
         }
-        
+
         isTransitioning = false;
     }
 
@@ -217,4 +307,5 @@ public class PlanetController : MonoBehaviour
 
         // TODO: Implement level transition and texture update for planet
     }
+}
 }

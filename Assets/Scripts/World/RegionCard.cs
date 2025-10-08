@@ -1,6 +1,7 @@
 using UnityEngine;
 using TMPro;
 using UnityEngine.SceneManagement;
+using Word_V2;
 
 /// <summary>
 /// Tarjeta flotante que representa una región clickeable
