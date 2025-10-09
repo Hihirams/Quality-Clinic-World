@@ -1,0 +1,51 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 136d19ee0809ff848a104605b7c51980, type: 3}
+  m_Name: WorldInteractiveData
+  m_EditorClassIdentifier: Assembly-CSharp::Word_V2.InteractiveData
+  levels:
+  - levelName: World
+    backgroundTexture: {fileID: 2800000, guid: 9b95043c44120ed498925dd2badcd414, type: 3}
+    maskTexture: {fileID: 2800000, guid: de1b1e176192ab844a9275e86a5b8024, type: 3}
+    regions:
+    - regionName: "Norte Am\xE9rica"
+      maskColor: {r: 0.6666667, g: 0.6392157, b: 0, a: 0}
+      backgroundTexture: {fileID: 2800000, guid: 334d310100355e649b744e52b768b015, type: 3}
+      maskTexture: {fileID: 2800000, guid: 8aec109be9c111742b65a5598aded824, type: 3}
+      nextSceneName: 
+  - levelName: "Norte Am\xE9rica"
+    backgroundTexture: {fileID: 2800000, guid: 334d310100355e649b744e52b768b015, type: 3}
+    maskTexture: {fileID: 2800000, guid: 8aec109be9c111742b65a5598aded824, type: 3}
+    regions:
+    - regionName: "M\xE9xico"
+      maskColor: {r: 0.90588236, g: 0, b: 0.9137255, a: 0}
+      backgroundTexture: {fileID: 2800000, guid: 1c953109466b2664fa93ca3be9df5220, type: 3}
+      maskTexture: {fileID: 2800000, guid: ab0fc4f68708b614e8fcc30b7fc0aac0, type: 3}
+      nextSceneName: 
+  - levelName: "M\xE9xico"
+    backgroundTexture: {fileID: 2800000, guid: 1c953109466b2664fa93ca3be9df5220, type: 3}
+    maskTexture: {fileID: 2800000, guid: ab0fc4f68708b614e8fcc30b7fc0aac0, type: 3}
+    regions:
+    - regionName: "Nuevo L\xE9on"
+      maskColor: {r: 0.09019608, g: 0.31764707, b: 1, a: 0}
+      backgroundTexture: {fileID: 2800000, guid: 538e6293a25e14140849c125cc505098, type: 3}
+      maskTexture: {fileID: 2800000, guid: 01cff81603f50bc40803bba35551c8c7, type: 3}
+      nextSceneName: 
+  - levelName: "Nuevo Le\xF3n"
+    backgroundTexture: {fileID: 2800000, guid: 538e6293a25e14140849c125cc505098, type: 3}
+    maskTexture: {fileID: 2800000, guid: 01cff81603f50bc40803bba35551c8c7, type: 3}
+    regions:
+    - regionName: Planta Apodaca
+      maskColor: {r: 0, g: 0, b: 1, a: 0}
+      backgroundTexture: {fileID: 0}
+      maskTexture: {fileID: 0}
+      nextSceneName: 10_Plant_OP2

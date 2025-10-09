@@ -258,7 +258,7 @@ private void SetupManualLabel()
         var nameTMP = nameObj.GetComponent<TextMeshProUGUI>();
         nameTMP.text = string.IsNullOrWhiteSpace(config.displayName) ? config.areaKey : config.displayName;
         nameTMP.alignment = TextAlignmentOptions.Center;
-        nameTMP.enableWordWrapping = false;
+        nameTMP.textWrappingMode = TextWrappingModes.NoWrap;
         nameTMP.fontSize = 36f;
         var nrt = nameTMP.rectTransform;
         nrt.anchorMin = nrt.anchorMax = new Vector2(0.5f, 0.5f);
@@ -271,7 +271,7 @@ private void SetupManualLabel()
         var pctTMP = pctObj.GetComponent<TextMeshProUGUI>();
         pctTMP.text = $"{config.OverallResult:F0}%";
         pctTMP.alignment = TextAlignmentOptions.Center;
-        pctTMP.enableWordWrapping = false;
+        pctTMP.textWrappingMode = TextWrappingModes.NoWrap;
         pctTMP.fontSize = 42f;
         pctTMP.fontStyle = FontStyles.Bold;
         var prt = pctTMP.rectTransform;
