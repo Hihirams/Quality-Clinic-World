@@ -3,7 +3,10 @@ using System.Collections.Generic;
 
 /// <summary>
 /// Sistema de detección pixel-perfect usando una máscara de colores invisible
+/// MEJORADO: Soporta cambio dinámico de máscaras para navegación multinivel
 /// </summary>
+/// 
+
 public class PixelPerfectPlanetClick : MonoBehaviour
 {
     [Header("Referencias")]
@@ -12,6 +15,9 @@ public class PixelPerfectPlanetClick : MonoBehaviour
     
     [Header("Mapeo de Colores a Regiones")]
     [SerializeField] private List<ColorRegionMapping> colorMappings = new List<ColorRegionMapping>();
+    
+    [Header("Sistemas Externos")]
+    [SerializeField] private TextureLayerManager layerManager;
     
     [Header("Debug")]
     [SerializeField] private bool showDebugLogs = true;
@@ -28,6 +34,9 @@ public class PixelPerfectPlanetClick : MonoBehaviour
         public Color maskColor;
         public RegionCard.RegionType regionType;
         public RegionCard[] childRegions;
+        
+        [Header("Escena a Cargar (Solo para Plantas)")]
+        public string sceneToLoad = "";
     }
     
     void Start()
@@ -43,6 +52,9 @@ public class PixelPerfectPlanetClick : MonoBehaviour
             mainCamera = GameObject.Find("Main Camera")?.GetComponent<Camera>();
             
         planetController = FindFirstObjectByType<PlanetController>();
+        
+        if (layerManager == null)
+            layerManager = FindFirstObjectByType<TextureLayerManager>();
         
         if (planet == null)
         {
@@ -96,68 +108,121 @@ public class PixelPerfectPlanetClick : MonoBehaviour
         }
     }
     
-private void DetectClickOnPlanet()
-{
-    if (mainCamera == null)
-        mainCamera = Camera.main;
-        
-    if (mainCamera == null || colorMask == null)
+    /// <summary>
+    /// NUEVO: Método público para actualizar la máscara dinámicamente
+    /// </summary>
+    public void UpdateColorMask(Texture2D newMask)
     {
-        Debug.LogError("❌ Falta cámara o máscara");
-        return;
-    }
-    
-    Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
-    RaycastHit hit;
-    
-    if (Physics.Raycast(ray, out hit))
-    {
-        if (hit.collider.gameObject == planet)
+        if (newMask == null)
         {
-            Vector2 uv = hit.textureCoord;
-            
-            // Si el collider no proporciona UV, calcular manualmente
-            if (uv.sqrMagnitude < 0.0001f)
+            Debug.LogError("❌ Máscara nula recibida!");
+            return;
+        }
+        
+        if (!newMask.isReadable)
+        {
+            Debug.LogError("❌ La máscara debe tener 'Read/Write Enabled'!");
+            return;
+        }
+        
+        colorMask = newMask;
+        Debug.Log($"✅ Máscara actualizada: {newMask.name} ({newMask.width}x{newMask.height})");
+        
+        if (showMaskOnPlanet)
+        {
+            MeshRenderer renderer = planet.GetComponent<MeshRenderer>();
+            if (renderer != null)
             {
-                Vector3 localHitPoint = planet.transform.InverseTransformPoint(hit.point);
-                Vector3 dir = localHitPoint.normalized;
-                
-                // Fórmula ajustada para tu orientación de textura (V invertido)
-                float u = 0.5f + Mathf.Atan2(dir.z, dir.x) / (2f * Mathf.PI);
-                float v = 0.5f + Mathf.Asin(dir.y) / Mathf.PI;
-                
-                uv = new Vector2(u, v);
-            }
-            
-            // Convertir UV a coordenadas de pixel
-            int x = Mathf.FloorToInt(uv.x * colorMask.width);
-            int y = Mathf.FloorToInt(uv.y * colorMask.height);
-            
-            x = Mathf.Clamp(x, 0, colorMask.width - 1);
-            y = Mathf.Clamp(y, 0, colorMask.height - 1);
-            
-            Color maskPixelColor = colorMask.GetPixel(x, y);
-            
-            if (showDebugLogs)
-            {
-                Debug.Log($"🎯 Click en UV: ({uv.x:F2}, {uv.y:F2}), Pixel: ({x},{y}), Color: RGB({maskPixelColor.r:F2}, {maskPixelColor.g:F2}, {maskPixelColor.b:F2})");
-                MarkPixelForDebug(x, y);
-            }
-            
-            ColorRegionMapping matchedRegion = FindRegionByMaskColor(maskPixelColor);
-            
-            if (matchedRegion != null)
-            {
-                Debug.Log($"✅ Región detectada: {matchedRegion.regionName}");
-                HandleRegionClick(matchedRegion);
-            }
-            else
-            {
-                Debug.Log($"⚪ Click en área sin asignar (océano o fuera de continentes)");
+                renderer.material.mainTexture = colorMask;
             }
         }
     }
+
+    /// <summary>
+/// Actualizar mapeos según el nivel actual
+/// LLAMAR ESTO cuando cambies de nivel
+/// </summary>
+public void SetMappingsForLevel(List<ColorRegionMapping> newMappings)
+{
+    colorMappings.Clear();
+    colorMappings.AddRange(newMappings);
+    Debug.Log($"✅ Mapeos actualizados: {colorMappings.Count} regiones en este nivel");
 }
+    
+    /// <summary>
+    /// NUEVO: Actualizar los mapeos de colores para el nivel actual
+    /// </summary>
+    public void UpdateColorMappings(List<ColorRegionMapping> newMappings)
+    {
+        if (newMappings != null && newMappings.Count > 0)
+        {
+            colorMappings = newMappings;
+            Debug.Log($"✅ Mapeos actualizados: {newMappings.Count} regiones");
+        }
+    }
+    
+    private void DetectClickOnPlanet()
+    {
+        if (mainCamera == null)
+            mainCamera = Camera.main;
+            
+        if (mainCamera == null || colorMask == null)
+        {
+            Debug.LogError("❌ Falta cámara o máscara");
+            return;
+        }
+        
+        Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
+        RaycastHit hit;
+        
+        if (Physics.Raycast(ray, out hit))
+        {
+            if (hit.collider.gameObject == planet)
+            {
+                Vector2 uv = hit.textureCoord;
+                
+                // Si el collider no proporciona UV, calcular manualmente
+                if (uv.sqrMagnitude < 0.0001f)
+                {
+                    Vector3 localHitPoint = planet.transform.InverseTransformPoint(hit.point);
+                    Vector3 dir = localHitPoint.normalized;
+                    
+                    // Fórmula ajustada para tu orientación de textura (V invertido)
+                    float u = 0.5f + Mathf.Atan2(dir.z, dir.x) / (2f * Mathf.PI);
+                    float v = 0.5f + Mathf.Asin(dir.y) / Mathf.PI;
+                    
+                    uv = new Vector2(u, v);
+                }
+                
+                // Convertir UV a coordenadas de pixel
+                int x = Mathf.FloorToInt(uv.x * colorMask.width);
+                int y = Mathf.FloorToInt(uv.y * colorMask.height);
+                
+                x = Mathf.Clamp(x, 0, colorMask.width - 1);
+                y = Mathf.Clamp(y, 0, colorMask.height - 1);
+                
+                Color maskPixelColor = colorMask.GetPixel(x, y);
+                
+                if (showDebugLogs)
+                {
+                    Debug.Log($"🎯 Click en UV: ({uv.x:F2}, {uv.y:F2}), Pixel: ({x},{y}), Color: RGB({maskPixelColor.r:F2}, {maskPixelColor.g:F2}, {maskPixelColor.b:F2})");
+                    MarkPixelForDebug(x, y);
+                }
+                
+                ColorRegionMapping matchedRegion = FindRegionByMaskColor(maskPixelColor);
+                
+                if (matchedRegion != null)
+                {
+                    Debug.Log($"✅ Región detectada: {matchedRegion.regionName} ({matchedRegion.regionType})");
+                    HandleRegionClick(matchedRegion);
+                }
+                else
+                {
+                    Debug.Log($"⚪ Click en área sin asignar (océano o fuera de regiones)");
+                }
+            }
+        }
+    }
     
     private ColorRegionMapping FindRegionByMaskColor(Color clickedColor)
     {
@@ -171,15 +236,29 @@ private void DetectClickOnPlanet()
         return null;
     }
     
-private bool ColorsMatch(Color a, Color b, float tolerance)
-{
-    return Mathf.Abs(a.r - b.r) < tolerance &&
-           Mathf.Abs(a.g - b.g) < tolerance &&
-           Mathf.Abs(a.b - b.b) < tolerance;
-}
+    private bool ColorsMatch(Color a, Color b, float tolerance)
+    {
+        return Mathf.Abs(a.r - b.r) < tolerance &&
+               Mathf.Abs(a.g - b.g) < tolerance &&
+               Mathf.Abs(a.b - b.b) < tolerance;
+    }
     
     private void HandleRegionClick(ColorRegionMapping region)
     {
+        // NUEVO: Si es planta con escena, cargar escena directamente
+        if (region.regionType == RegionCard.RegionType.Plant && !string.IsNullOrEmpty(region.sceneToLoad))
+        {
+            Debug.Log($"🏭 Cargando escena de planta: {region.sceneToLoad}");
+            UnityEngine.SceneManagement.SceneManager.LoadScene(region.sceneToLoad);
+            return;
+        }
+        
+        // NUEVO: Notificar al TextureLayerManager para cambiar la capa
+        if (layerManager != null)
+        {
+            layerManager.LoadLayerForRegion(region.regionName, region.regionType);
+        }
+        
         if (planetController == null)
         {
             Debug.LogWarning("No hay PlanetController");
@@ -195,7 +274,13 @@ private bool ColorsMatch(Color a, Color b, float tolerance)
         tempCard.regionName = region.regionName;
         tempCard.regionType = region.regionType;
         tempCard.childRegions = region.childRegions;
-        tempCard.rotatesWithPlanet = true;
+        tempCard.rotatesWithPlanet = (region.regionType == RegionCard.RegionType.Continent);
+        
+        // NUEVO: Asignar escena si es planta
+        if (region.regionType == RegionCard.RegionType.Plant)
+        {
+            tempCard.sceneToLoad = region.sceneToLoad;
+        }
         
         planetController.FocusOnRegion(tempCard);
     }
@@ -231,11 +316,11 @@ private bool ColorsMatch(Color a, Color b, float tolerance)
     [ContextMenu("Listar Mapeos")]
     private void TestListMappings()
     {
-        Debug.Log("=== MAPEOS ===");
+        Debug.Log("=== MAPEOS ACTUALES ===");
         for (int i = 0; i < colorMappings.Count; i++)
         {
             var m = colorMappings[i];
-            Debug.Log($"{i}: {m.regionName} - RGB({m.maskColor.r:F2}, {m.maskColor.g:F2}, {m.maskColor.b:F2})");
+            Debug.Log($"{i}: {m.regionName} ({m.regionType}) - RGB({m.maskColor.r:F2}, {m.maskColor.g:F2}, {m.maskColor.b:F2})");
         }
     }
 }

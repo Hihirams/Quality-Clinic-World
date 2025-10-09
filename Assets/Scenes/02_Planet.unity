@@ -462,7 +462,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 144463788}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0.26429388, z: 0, w: 0.9644422}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -470,7 +470,7 @@ Transform:
   - {fileID: 1132151640}
   - {fileID: 8516152}
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 30.65, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &144463790
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -531,7 +531,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 86886bba56dc39d4fb630266f54ba157, type: 2}
+  - {fileID: 2100000, guid: 4783aee34fb6dc94886eaf013969fbb3, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -1921,12 +1921,13 @@ MonoBehaviour:
   - {fileID: 10667366}
   - {fileID: 234384039}
   - {fileID: 1595423127}
+  layerManager: {fileID: 1491271617}
   zoomDuration: 1.5
-  continentZoomDistance: 1
-  countryZoomDistance: 1
-  stateZoomDistance: 5
-  plantZoomDistance: 8
-  planetRotationSpeed: 5
+  continentZoomDistance: 2
+  countryZoomDistance: 1.6
+  stateZoomDistance: 1.4
+  plantZoomDistance: 1.2
+  planetRotationSpeed: 3
   autoRotate: 1
   focusRotationDuration: 1.2
   visualLayer_Continents: {fileID: 0}
@@ -2749,7 +2750,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1239781252}
-  - component: {fileID: 1239781251}
   m_Layer: 0
   m_Name: PlanetClickDetector
   m_TagString: Untagged
@@ -2757,48 +2757,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1239781251
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1239781250}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 01d15e70f42f4674e9b2fbe7d3b039ad, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PixelPerfectPlanetClick
-  planet: {fileID: 144463788}
-  colorMask: {fileID: 2800000, guid: a72bc140b2dc1eb44a5dd4eb178bc019, type: 3}
-  colorMappings:
-  - regionName: "\xC1frica"
-    maskColor: {r: 1, g: 0, b: 0, a: 0}
-    regionType: 0
-    childRegions: []
-  - regionName: Europa
-    maskColor: {r: 0, g: 0.8, b: 0.02, a: 0}
-    regionType: 0
-    childRegions: []
-  - regionName: Asia
-    maskColor: {r: 0.14, g: 0.34, b: 0.99, a: 0}
-    regionType: 0
-    childRegions: []
-  - regionName: "Am\xE9rica del Norte"
-    maskColor: {r: 0.73, g: 0.71, b: 0.03, a: 0}
-    regionType: 0
-    childRegions: []
-  - regionName: "Am\xE9rica del Sur"
-    maskColor: {r: 1, g: 0, b: 1, a: 0}
-    regionType: 0
-    childRegions: []
-  - regionName: "Ocean\xEDa"
-    maskColor: {r: 0, g: 0.78, b: 0.78, a: 0}
-    regionType: 0
-    childRegions: []
-  showDebugLogs: 1
-  showMaskOnPlanet: 0
-  debugMarker: {fileID: 0}
 --- !u!4 &1239781252
 Transform:
   m_ObjectHideFlags: 0
@@ -3275,6 +3233,137 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1386363415}
   m_Mesh: {fileID: 10210, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1 &1491271615
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1491271618}
+  - component: {fileID: 1491271617}
+  - component: {fileID: 1491271616}
+  m_Layer: 0
+  m_Name: Systems
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1491271616
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1491271615}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 01d15e70f42f4674e9b2fbe7d3b039ad, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PixelPerfectPlanetClick
+  planet: {fileID: 144463788}
+  colorMask: {fileID: 2800000, guid: de1b1e176192ab844a9275e86a5b8024, type: 3}
+  colorMappings: []
+  layerManager: {fileID: 1491271617}
+  showDebugLogs: 1
+  showMaskOnPlanet: 0
+  debugMarker: {fileID: 0}
+--- !u!114 &1491271617
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1491271615}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ad8f0ed5a637b5447a1e00f20b26daa3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TextureLayerManager
+  worldLayer:
+    layerName: World
+    backgroundTexture: {fileID: 2800000, guid: 9b95043c44120ed498925dd2badcd414, type: 3}
+    maskTexture: {fileID: 2800000, guid: de1b1e176192ab844a9275e86a5b8024, type: 3}
+    levelType: 0
+    colorMappings:
+    - regionName: "Am\xE9rica del Norte"
+      maskColor: {r: 0.74, g: 0.71, b: 0.03, a: 0}
+      regionType: 0
+      sceneToLoad: 
+  continentLayers:
+  - layerName: "\xC1frica"
+    backgroundTexture: {fileID: 0}
+    maskTexture: {fileID: 0}
+    levelType: 0
+    colorMappings: []
+  - layerName: Europa
+    backgroundTexture: {fileID: 0}
+    maskTexture: {fileID: 0}
+    levelType: 0
+    colorMappings: []
+  - layerName: "Am\xE9rica del Norte"
+    backgroundTexture: {fileID: 2800000, guid: 334d310100355e649b744e52b768b015, type: 3}
+    maskTexture: {fileID: 2800000, guid: 8aec109be9c111742b65a5598aded824, type: 3}
+    levelType: 0
+    colorMappings:
+    - regionName: "M\xE9xico"
+      maskColor: {r: 0.84, g: 0.02, b: 0.87, a: 0}
+      regionType: 1
+      sceneToLoad: 
+  - layerName: "Am\xE9rica del Sur,"
+    backgroundTexture: {fileID: 0}
+    maskTexture: {fileID: 0}
+    levelType: 0
+    colorMappings: []
+  - layerName: "Ocean\xEDa"
+    backgroundTexture: {fileID: 0}
+    maskTexture: {fileID: 0}
+    levelType: 0
+    colorMappings: []
+  - layerName: Asia
+    backgroundTexture: {fileID: 0}
+    maskTexture: {fileID: 0}
+    levelType: 0
+    colorMappings: []
+  countryLayers:
+  - layerName: "M\xE9xico"
+    backgroundTexture: {fileID: 2800000, guid: 1c953109466b2664fa93ca3be9df5220, type: 3}
+    maskTexture: {fileID: 2800000, guid: ab0fc4f68708b614e8fcc30b7fc0aac0, type: 3}
+    levelType: 1
+    colorMappings:
+    - regionName: "Nuevo Le\xF3n"
+      maskColor: {r: 0.14, g: 0.34, b: 0.99, a: 0}
+      regionType: 2
+      sceneToLoad: 
+  stateLayers:
+  - layerName: "Nuevo Le\xF3n"
+    backgroundTexture: {fileID: 2800000, guid: 538e6293a25e14140849c125cc505098, type: 3}
+    maskTexture: {fileID: 2800000, guid: 01cff81603f50bc40803bba35551c8c7, type: 3}
+    levelType: 2
+    colorMappings:
+    - regionName: Planta Apodaca
+      maskColor: {r: 0.84, g: 0.02, b: 0.87, a: 0}
+      regionType: 3
+      sceneToLoad: 10_Plant_OP2
+  planet: {fileID: 144463788}
+  pixelClickSystem: {fileID: 0}
+--- !u!4 &1491271618
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1491271615}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1503528262
 GameObject:
   m_ObjectHideFlags: 0
@@ -4857,3 +4946,4 @@ SceneRoots:
   - {fileID: 1938738165}
   - {fileID: 1807412188}
   - {fileID: 1239781252}
+  - {fileID: 1491271618}

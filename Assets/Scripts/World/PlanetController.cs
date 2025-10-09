@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 /// <summary>
 /// Controlador principal del sistema de navegación
-/// NUEVA MECÁNICA: El planeta rota para centrar regiones, la cámara permanece fija
+/// MEJORADO: Integrado con TextureLayerManager para navegación multinivel
 /// </summary>
 public class PlanetController : MonoBehaviour
 {
@@ -12,6 +12,9 @@ public class PlanetController : MonoBehaviour
     public GameObject planet;
     public Camera mainCamera;
     public RegionCard[] continentCards;
+    
+    [Header("Sistema de Capas")]
+    public TextureLayerManager layerManager;
     
     [Header("Configuración de Zoom")]
     public float zoomDuration = 1.5f;
@@ -23,9 +26,9 @@ public class PlanetController : MonoBehaviour
     [Header("Rotación del Planeta")]
     public float planetRotationSpeed = 10f;
     public bool autoRotate = true;
-    public float focusRotationDuration = 1.2f; // Duración de la rotación al hacer focus
+    public float focusRotationDuration = 1.2f;
     
-    [Header("Capas Visuales")]
+    [Header("Capas Visuales (Opcional - Sistema Legacy)")]
     public GameObject visualLayer_Continents;
     public GameObject visualLayer_Countries;
     public GameObject visualLayer_States;
@@ -52,6 +55,9 @@ public class PlanetController : MonoBehaviour
         
         if (planet == null)
             planet = GameObject.Find("Planet");
+        
+        if (layerManager == null)
+            layerManager = FindFirstObjectByType<TextureLayerManager>();
         
         // Guardar estado inicial
         initialCameraPosition = mainCamera.transform.position;
@@ -94,7 +100,7 @@ public class PlanetController : MonoBehaviour
     {
         if (isTransitioning) return;
         
-        Debug.Log($"\n{'='*50}");
+        Debug.Log($"\n{new string('=', 50)}");
         Debug.Log($"🎯 FOCUS EN: {region.regionName} ({region.regionType})");
         
         // Detener auto-rotación
@@ -145,7 +151,7 @@ public class PlanetController : MonoBehaviour
         // Iniciar transición
         StartCoroutine(TransitionToRegion(targetRotation, targetCameraPosition, region.childRegions));
         
-        Debug.Log($"{'='*50}\n");
+        Debug.Log($"{new string('=', 50)}\n");
     }
     
     /// <summary>
@@ -201,6 +207,12 @@ public class PlanetController : MonoBehaviour
         if (isTransitioning) return;
         
         Debug.Log("\n🔙 VOLVER ATRÁS");
+        
+        // NUEVO: Notificar al LayerManager para volver a la capa anterior
+        if (layerManager != null)
+        {
+            layerManager.GoToPreviousLayer();
+        }
         
         // Desbloquear y ocultar tarjetas actuales
         if (currentVisibleCards != null)
