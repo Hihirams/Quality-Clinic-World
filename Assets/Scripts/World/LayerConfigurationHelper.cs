@@ -11,13 +11,6 @@ public class LayerConfigurationHelper : MonoBehaviour
     [SerializeField] private TextureLayerManager layerManager;
     [SerializeField] private PixelPerfectPlanetClick pixelClickSystem;
     
-    [Header("Configuración de Colores")]
-    [Tooltip("Tolerancia para detección de colores (0.15 recomendado)")]
-    [SerializeField] private float colorTolerance = 0.15f;
-    
-    [Header("Validación")]
-    [SerializeField] private bool showValidationLogs = true;
-    
     void Start()
     {
         if (layerManager == null)

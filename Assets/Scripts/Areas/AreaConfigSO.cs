@@ -45,7 +45,9 @@ public class AreaConfigSO : ScriptableObject
 
         ClampAll();
         RecalculateOverall();
+#if UNITY_EDITOR
         ValidateDuplicateKeysInProject();
+#endif
     }
 
     /// <summary>Limita KPIs al rango 0..100.</summary>

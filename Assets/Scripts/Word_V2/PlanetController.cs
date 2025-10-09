@@ -287,7 +287,7 @@ namespace Word_V2
         Debug.Log($"Focusing on region: {regionCard.regionName}");
 
         // Hide all other regions at the same level
-        RegionCard[] allCards = FindObjectsOfType<RegionCard>(true);
+        RegionCard[] allCards = Object.FindObjectsByType<RegionCard>(FindObjectsSortMode.None);
         foreach (var card in allCards)
         {
             if (card != regionCard && card.regionType == regionCard.regionType)

@@ -4,6 +4,12 @@
 EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
-  m_Scenes: []
+  m_Scenes:
+  - enabled: 1
+    path: Assets/Scenes/02_Planet.unity
+    guid: d77a9f78378d86748b0838ab23a717df
+  - enabled: 1
+    path: Assets/Scenes/10_Plant_OP2.unity
+    guid: 01f28211561086b44963a2581cca67ad
   m_configObjects: {}
   m_UseUCBPForAssetBundles: 0
